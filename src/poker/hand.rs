@@ -1,4 +1,5 @@
 use crate::poker::types::{Card, Hand, Rank, Winner};
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::iter::zip;
 
@@ -144,31 +145,42 @@ pub fn best_hand(cards: &Vec<Card>) -> Hand {
     }
 }
 
-fn compare_hands(
-    (name1, cs1): (&String, &Vec<Card>),
-    (name2, cs2): (&String, &Vec<Card>),
-) -> Winner {
+fn compare_hands((name1, cs1): (String, &Vec<Card>), (name2, cs2): (String, &Vec<Card>)) -> Winner {
     let h1 = best_hand(cs1);
     let h2 = best_hand(cs2);
-    match h2.cmp(&h1) {
-        GT => Winner::Winner {
-            name: *name1,
+    match h1.cmp(&h2) {
+        Ordering::Greater => Winner::Winner {
+            name: name1,
             hand: h1,
         },
-        LT => Winner::Winner {
-            name: *name2,
+        Ordering::Less => Winner::Winner {
+            name: name2,
             hand: h2,
         },
-        EQ => match (h1, h2) {
-            (Hand::StraightFlush(r1), Hand::StraightFlush(r2)) => win_or_draw(r1, r2),
-            (Hand::FourOfAKind(r1), Hand::FourOfAKind(r2)) => win_or_high(r1, r2),
-            (Hand::FullHouse(r1, r3), Hand::FullHouse(r2, r4)) => win_or_high2(r1, r2, r3, r4),
+        Ordering::Equal => match (h1, h2) {
+            (Hand::StraightFlush(r1), Hand::StraightFlush(r2)) => {
+                win_or_draw(&r1, h1, name1, &r2, h2, name2)
+            }
+            (Hand::FourOfAKind(r1), Hand::FourOfAKind(r2)) => {
+                win_or_high(&r1, h1, name1, cs1, &r2, h2, name2, cs2)
+            }
+            (Hand::FullHouse(r1, r3), Hand::FullHouse(r2, r4)) => {
+                win_or_high2(&r1, &r2, &r3, &r4, h1, name1, cs1, h2, name2, cs2)
+            }
             (Hand::Flush(..), Hand::Flush(..)) => highest_cards((name1, cs1), (name2, cs2), h1, h2),
-            (Hand::Straight(r1), Hand::Straight(r2)) => win_or_draw(r1, r2),
-            (Hand::ThreeOfAKind(r1), Hand::ThreeOfAKind(r2)) => win_or_high(r1, r2),
-            (Hand::TwoPair(r1, r3), Hand::TwoPair(r2, r4)) => win_or_high2(r1, r2, r3, r4),
-            (Hand::OnePair(r1), Hand::OnePair(r2)) => win_or_high(r1, r2),
-            (Hand::HighCard(r1), Hand::HighCard(r2)) => win_or_high(r1, r2),
+            (Hand::Straight(r1), Hand::Straight(r2)) => win_or_draw(&r1, h1, name1, &r2, h2, name2),
+            (Hand::ThreeOfAKind(r1), Hand::ThreeOfAKind(r2)) => {
+                win_or_high(&r1, h1, name1, cs1, &r2, h2, name2, cs2)
+            }
+            (Hand::TwoPair(r1, r3), Hand::TwoPair(r2, r4)) => {
+                win_or_high2(&r1, &r2, &r3, &r4, h1, name1, cs1, h2, name2, cs2)
+            }
+            (Hand::OnePair(r1), Hand::OnePair(r2)) => {
+                win_or_high(&r1, h1, name1, cs1, &r2, h2, name2, cs2)
+            }
+            (Hand::HighCard(r1), Hand::HighCard(r2)) => {
+                win_or_high(&r1, h1, name1, cs1, &r2, h2, name2, cs2)
+            }
             _ => panic!("Not going to happen."),
         },
     }
@@ -176,12 +188,12 @@ fn compare_hands(
 
 fn win_or_draw(r1: &Rank, h1: Hand, name1: String, r2: &Rank, h2: Hand, name2: String) -> Winner {
     match r1.cmp(r2) {
-        _EQ => Winner::Draw,
-        _LT => Winner::Winner {
+        Ordering::Equal => Winner::Draw,
+        Ordering::Less => Winner::Winner {
             name: name2,
             hand: h2,
         },
-        _GT => Winner::Winner {
+        Ordering::Greater => Winner::Winner {
             name: name1,
             hand: h1,
         },
@@ -199,12 +211,12 @@ fn win_or_high(
     cs2: &Vec<Card>,
 ) -> Winner {
     match r1.cmp(r2) {
-        _EQ => highest_cards((name1, cs1), (name2, cs2), h1, h2),
-        _LT => Winner::Winner {
+        Ordering::Equal => highest_cards((name1, cs1), (name2, cs2), h1, h2),
+        Ordering::Less => Winner::Winner {
             name: name2,
             hand: h2,
         },
-        _GT => Winner::Winner {
+        Ordering::Greater => Winner::Winner {
             name: name1,
             hand: h1,
         },
@@ -224,22 +236,22 @@ fn win_or_high2(
     cs2: &Vec<Card>,
 ) -> Winner {
     match r1.cmp(r2) {
-        _EQ => match r3.cmp(r4) {
-            EQ => highest_cards((name1, cs1), (name2, cs2), h1, h2),
-            LT => Winner::Winner {
+        Ordering::Equal => match r3.cmp(r4) {
+            Ordering::Equal => highest_cards((name1, cs1), (name2, cs2), h1, h2),
+            Ordering::Less => Winner::Winner {
                 name: name1,
                 hand: h1,
             },
-            GT => Winner::Winner {
+            Ordering::Greater => Winner::Winner {
                 name: name2,
                 hand: h2,
             },
         },
-        LT => Winner::Winner {
+        Ordering::Less => Winner::Winner {
             name: name2,
             hand: h2,
         },
-        GT => Winner::Winner {
+        Ordering::Greater => Winner::Winner {
             name: name1,
             hand: h1,
         },

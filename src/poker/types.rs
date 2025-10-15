@@ -1,4 +1,3 @@
-use num_traits::FromPrimitive;
 use std::collections::HashMap;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
@@ -38,7 +37,7 @@ pub struct Card {
     pub suit: Suit,
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum Hand {
     HighCard(Rank),
     OnePair(Rank),

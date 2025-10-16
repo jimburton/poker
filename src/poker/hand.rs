@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::iter::zip;
 
-pub fn longest_sequence(cards: &Vec<Card>) -> Vec<Card> {
+fn longest_sequence(cards: &Vec<Card>) -> Vec<Card> {
     if cards.is_empty() {
         return Vec::new();
     }
@@ -90,7 +90,7 @@ pub fn longest_sequence(cards: &Vec<Card>) -> Vec<Card> {
     final_sequence_cards
 }
 
-pub fn group_by_rank(cards: &Vec<Card>) -> Vec<Vec<Card>> {
+fn group_by_rank(cards: &Vec<Card>) -> Vec<Vec<Card>> {
     let mut grouped_by_rank: HashMap<Rank, Vec<Card>> = HashMap::new();
 
     for card in cards.iter() {
@@ -122,18 +122,12 @@ pub fn best_hand(cards: &Vec<Card>) -> Hand {
     let ranks = group_by_rank(cards);
     if same_suit(cards) && ls.len() == 5 {
         Hand::StraightFlush(cards[cards.len() - 1].rank)
-    } else if ranks.len() > 0 && ranks[0].len() == 4 {
+    } else if !ranks.is_empty() && ranks[0].len() == 4 {
         Hand::FourOfAKind(ranks[0][0].rank)
     } else if ranks.len() > 1 && ranks[0].len() == 3 && ranks[1].len() == 2 {
         Hand::FullHouse(ranks[0][0].rank, ranks[1][0].rank)
     } else if same_suit(cards) {
-        Hand::Flush(
-            cards[0].rank,
-            cards[1].rank,
-            cards[2].rank,
-            cards[3].rank,
-            cards[4].rank,
-        )
+        Hand::Flush(cs[4].rank, cs[3].rank, cs[2].rank, cs[1].rank, cs[0].rank)
     } else if ls.len() == 5 {
         Hand::Straight(cards.iter().map(|a| a.rank).max().unwrap())
     } else if ranks.len() > 0 && ranks[0].len() == 3 {
@@ -292,4 +286,482 @@ fn highest_cards(
         }
     }
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::poker::types::{Card, Rank, Suit};
+
+    const HIGH_CARD: [Card; 5] = [
+        Card {
+            rank: Rank::Rank2,
+            suit: Suit::Clubs,
+        },
+        Card {
+            rank: Rank::Rank4,
+            suit: Suit::Diamonds,
+        },
+        Card {
+            rank: Rank::Rank7,
+            suit: Suit::Clubs,
+        },
+        Card {
+            rank: Rank::Rank10,
+            suit: Suit::Hearts,
+        },
+        Card {
+            rank: Rank::Ace,
+            suit: Suit::Spades,
+        },
+    ];
+    const ONE_PAIR: [Card; 5] = [
+        Card {
+            rank: Rank::Rank2,
+            suit: Suit::Clubs,
+        },
+        Card {
+            rank: Rank::Rank2,
+            suit: Suit::Diamonds,
+        },
+        Card {
+            rank: Rank::Rank3,
+            suit: Suit::Clubs,
+        },
+        Card {
+            rank: Rank::Rank4,
+            suit: Suit::Hearts,
+        },
+        Card {
+            rank: Rank::Rank8,
+            suit: Suit::Spades,
+        },
+    ];
+    const TWO_PAIR: [Card; 5] = [
+        Card {
+            rank: Rank::Rank2,
+            suit: Suit::Clubs,
+        },
+        Card {
+            rank: Rank::Rank2,
+            suit: Suit::Diamonds,
+        },
+        Card {
+            rank: Rank::Rank3,
+            suit: Suit::Clubs,
+        },
+        Card {
+            rank: Rank::Rank4,
+            suit: Suit::Hearts,
+        },
+        Card {
+            rank: Rank::Rank4,
+            suit: Suit::Spades,
+        },
+    ];
+    const THREE_OF_A_KIND: [Card; 5] = [
+        Card {
+            rank: Rank::Rank2,
+            suit: Suit::Clubs,
+        },
+        Card {
+            rank: Rank::King,
+            suit: Suit::Diamonds,
+        },
+        Card {
+            rank: Rank::Rank3,
+            suit: Suit::Clubs,
+        },
+        Card {
+            rank: Rank::Rank3,
+            suit: Suit::Hearts,
+        },
+        Card {
+            rank: Rank::Rank3,
+            suit: Suit::Spades,
+        },
+    ];
+    const STRAIGHT: [Card; 5] = [
+        Card {
+            rank: Rank::Rank2,
+            suit: Suit::Clubs,
+        },
+        Card {
+            rank: Rank::Rank3,
+            suit: Suit::Diamonds,
+        },
+        Card {
+            rank: Rank::Rank4,
+            suit: Suit::Clubs,
+        },
+        Card {
+            rank: Rank::Rank5,
+            suit: Suit::Hearts,
+        },
+        Card {
+            rank: Rank::Rank6,
+            suit: Suit::Spades,
+        },
+    ];
+    const FLUSH: [Card; 5] = [
+        Card {
+            rank: Rank::Rank2,
+            suit: Suit::Clubs,
+        },
+        Card {
+            rank: Rank::King,
+            suit: Suit::Clubs,
+        },
+        Card {
+            rank: Rank::Rank3,
+            suit: Suit::Clubs,
+        },
+        Card {
+            rank: Rank::Rank8,
+            suit: Suit::Clubs,
+        },
+        Card {
+            rank: Rank::Ace,
+            suit: Suit::Clubs,
+        },
+    ];
+    const FULL_HOUSE: [Card; 5] = [
+        Card {
+            rank: Rank::Rank2,
+            suit: Suit::Clubs,
+        },
+        Card {
+            rank: Rank::Rank2,
+            suit: Suit::Diamonds,
+        },
+        Card {
+            rank: Rank::Rank2,
+            suit: Suit::Spades,
+        },
+        Card {
+            rank: Rank::Jack,
+            suit: Suit::Hearts,
+        },
+        Card {
+            rank: Rank::Jack,
+            suit: Suit::Spades,
+        },
+    ];
+    const FOUR_OF_A_KIND: [Card; 5] = [
+        Card {
+            rank: Rank::Rank5,
+            suit: Suit::Clubs,
+        },
+        Card {
+            rank: Rank::Rank5,
+            suit: Suit::Diamonds,
+        },
+        Card {
+            rank: Rank::Rank5,
+            suit: Suit::Spades,
+        },
+        Card {
+            rank: Rank::Rank5,
+            suit: Suit::Hearts,
+        },
+        Card {
+            rank: Rank::Rank3,
+            suit: Suit::Spades,
+        },
+    ];
+    const STRAIGHT_FLUSH: [Card; 5] = [
+        Card {
+            rank: Rank::Rank5,
+            suit: Suit::Clubs,
+        },
+        Card {
+            rank: Rank::Rank6,
+            suit: Suit::Clubs,
+        },
+        Card {
+            rank: Rank::Rank7,
+            suit: Suit::Clubs,
+        },
+        Card {
+            rank: Rank::Rank8,
+            suit: Suit::Clubs,
+        },
+        Card {
+            rank: Rank::Rank9,
+            suit: Suit::Clubs,
+        },
+    ];
+    #[test]
+    fn test_longest_sequence() {
+        let h1 = Vec::from(ONE_PAIR);
+        let ls_h1 = longest_sequence(&h1);
+        let ls_h1_len = ls_h1.len();
+        //println!("Longest sequence: {:?}", ls_h1);
+        assert!(
+            ls_h1.len() == 3,
+            "Longest sequence: expected 3, result was {ls_h1_len}"
+        );
+        let h2 = Vec::from(HIGH_CARD);
+        let ls_h2 = longest_sequence(&h2);
+        let ls_h2_len = ls_h2.len();
+        //println!("Longest sequence: {:?}", ls_h2);
+        assert!(
+            ls_h2.len() == 1,
+            "Longest sequence: expected 1, result was {ls_h2_len}"
+        );
+    }
+
+    #[test]
+    fn test_group_by_rank() {
+        let h1 = Vec::from(ONE_PAIR);
+        let gr_h1 = group_by_rank(&h1);
+        assert!(
+            gr_h1.len() == 4,
+            "group_by_rank(ONE_PAIR).len(): expected 4 groups, result was {}",
+            gr_h1.len()
+        );
+        if let Some(c) = gr_h1.first() {
+            assert!(
+                c.len() == 2,
+                "group_by_rank(ONE_PAIR): longest group should be have 2 cards, was {}",
+                c.len()
+            );
+            assert!(
+                c.get(0).unwrap().rank == Rank::Rank2,
+                "group_by_rank(ONE_PAIR): longest group should have Rank2 cards, was {:?}",
+                c.get(0).unwrap().rank
+            );
+        } else {
+            panic!("group_by_rank(ONE_PAIR): Nothing in the longest group")
+        }
+        let h2 = Vec::from(FOUR_OF_A_KIND);
+        let gr_h2 = group_by_rank(&h2);
+        assert!(
+            gr_h2.len() == 2,
+            "group_by_rank(FOUR_OF_A_KIND).len(): expected 2 groups, result was {}",
+            gr_h2.len()
+        );
+        if let Some(c) = gr_h2.first() {
+            assert!(
+                c.len() == 4,
+                "group_by_rank(FOUR_OF_A_KIND): longest group should be have 4 cards, was {}",
+                c.len()
+            );
+            assert!(
+                c.get(0).unwrap().rank == Rank::Rank5,
+                "group_by_rank(FOUR_OF_A_KIND): longest group should have Rank5 cards, was {:?}",
+                c.get(0).unwrap().rank
+            );
+        } else {
+            panic!("group_by_rank(FOUR_OF_A_KIND): Nothing in the longest group")
+        }
+    }
+
+    #[test]
+    fn test_best_hand_high_card() {
+        let h1 = Vec::from(HIGH_CARD);
+        let bh_high_card = best_hand(&h1);
+        if let Hand::HighCard(r) = bh_high_card {
+            assert!(
+                r == Rank::Ace,
+                "best_hand(HIGH_CARD): expected Ace, result was {:?}",
+                r
+            );
+        } else {
+            panic!(
+                "best_hand(HIGH_CARD): expected Hand::HIGH_CARD, result was {:?}",
+                bh_high_card
+            );
+        }
+    }
+
+    #[test]
+    fn test_best_hand_one_pair() {
+        let h1 = Vec::from(ONE_PAIR);
+        let bh_one_pair = best_hand(&h1);
+        if let Hand::OnePair(r) = bh_one_pair {
+            assert!(
+                r == Rank::Rank2,
+                "best_hand(ONE_PAIR): expected 2, result was {:?}",
+                r
+            );
+        } else {
+            panic!(
+                "best_hand(ONE_PAIR): expected Hand::OnePair, result was {:?}",
+                bh_one_pair
+            );
+        }
+    }
+
+    #[test]
+    fn test_best_hand_two_pair() {
+        let h1 = Vec::from(TWO_PAIR);
+        let bh_two_pair = best_hand(&h1);
+        if let Hand::TwoPair(r1, r2) = bh_two_pair {
+            assert!(
+                r1 == Rank::Rank2 && r2 == Rank::Rank4,
+                "best_hand(TWO_PAIR): expected 2, 4, result was {:?},{:?}",
+                r1,
+                r2
+            );
+        } else {
+            panic!(
+                "best_hand(ONE_PAIR): expected Hand::OnePair, result was {:?}",
+                bh_two_pair
+            );
+        }
+    }
+
+    #[test]
+    fn test_best_hand_three_of_a_kind() {
+        let h1 = Vec::from(THREE_OF_A_KIND);
+        let bh_tok = best_hand(&h1);
+        if let Hand::ThreeOfAKind(r) = bh_tok {
+            assert!(
+                r == Rank::Rank3,
+                "best_hand(THREE_OF_A_KIND): expected 3, result was {:?}",
+                r
+            );
+        } else {
+            panic!(
+                "best_hand(THREE_OF_A_KIND): expected Hand::ThreeOfAKind, result was {:?}",
+                bh_tok
+            );
+        }
+    }
+
+    #[test]
+    fn test_best_hand_straight() {
+        let h1 = Vec::from(STRAIGHT);
+        let bh_s = best_hand(&h1);
+        if let Hand::Straight(r) = bh_s {
+            assert!(
+                r == Rank::Rank6,
+                "best_hand(STRAIGHT): expected 6, result was {:?}",
+                r
+            );
+        } else {
+            panic!(
+                "best_hand(STRAIGHT): expected Hand::Straight, result was {:?}",
+                bh_s
+            );
+        }
+    }
+
+    #[test]
+    fn test_best_hand_flush() {
+        let h1 = Vec::from(FLUSH);
+        let bh_f = best_hand(&h1);
+        if let Hand::Flush(r1, r2, r3, r4, r5) = bh_f {
+            assert!(
+                r1 == Rank::Rank2
+                    && r2 == Rank::Rank3
+                    && r3 == Rank::Rank8
+                    && r4 == Rank::King
+                    && r5 == Rank::Ace,
+                "best_hand(FLUSH): expected 2,3,8,K,A, result was {:?},{:?},{:?},{:?},{:?}",
+                r1,
+                r2,
+                r3,
+                r4,
+                r5
+            );
+        } else {
+            panic!(
+                "best_hand(FLUSH): expected Hand::Flush, result was {:?}",
+                bh_f
+            );
+        }
+    }
+
+    #[test]
+    fn test_best_full_house() {
+        let h1 = Vec::from(FULL_HOUSE);
+        let bh_f = best_hand(&h1);
+        if let Hand::FullHouse(r1, r2) = bh_f {
+            assert!(
+                r1 == Rank::Rank2 && r2 == Rank::Jack,
+                "best_hand(FULL_HOUSE): expected 2,J, result was {:?},{:?}",
+                r1,
+                r2
+            );
+        } else {
+            panic!(
+                "best_hand(FULL_HOUSE): expected Hand::FullHouse, result was {:?}",
+                bh_f
+            );
+        }
+    }
+
+    #[test]
+    fn test_best_four_of_a_kind() {
+        let h1 = Vec::from(FOUR_OF_A_KIND);
+        let bh_f = best_hand(&h1);
+        if let Hand::FourOfAKind(r) = bh_f {
+            assert!(
+                r == Rank::Rank5,
+                "best_hand(FOUR_OF_A_KIND): expected 5, result was {:?}",
+                r
+            );
+        } else {
+            panic!(
+                "best_hand(FOUR_OF_A_KIND): expected Hand::FourOfAKind, result was {:?}",
+                bh_f
+            );
+        }
+    }
+
+    #[test]
+    fn test_best_straight_flush() {
+        let h1 = Vec::from(STRAIGHT_FLUSH);
+        let bh_sf = best_hand(&h1);
+        if let Hand::StraightFlush(r) = bh_sf {
+            assert!(
+                r == Rank::Rank9,
+                "best_hand(STRAIGHT_FLUSH): expected 9, result was {:?}",
+                r
+            );
+        } else {
+            panic!(
+                "best_hand(STRAIGHT_FLUSH): expected Hand::StraightFlush, result was {:?}",
+                bh_sf
+            );
+        }
+    }
+
+    #[test]
+    fn test_same_suit() {
+        let h1: [Card; 3] = [
+            Card {
+                rank: Rank::Rank2,
+                suit: Suit::Clubs,
+            },
+            Card {
+                rank: Rank::Rank3,
+                suit: Suit::Clubs,
+            },
+            Card {
+                rank: Rank::Ace,
+                suit: Suit::Clubs,
+            },
+        ];
+        let good = same_suit(&Vec::from(h1));
+        assert!(good, "same_suit(h1): expected true, was {}", good);
+        let h2: [Card; 3] = [
+            Card {
+                rank: Rank::Rank2,
+                suit: Suit::Clubs,
+            },
+            Card {
+                rank: Rank::Rank3,
+                suit: Suit::Clubs,
+            },
+            Card {
+                rank: Rank::Ace,
+                suit: Suit::Hearts,
+            },
+        ];
+        let bad = same_suit(&Vec::from(h2));
+        assert!(!bad, "same_suit(h2): expected false, was {}", bad);
+    }
 }

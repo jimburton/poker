@@ -34,7 +34,7 @@ fn new_deck() -> Vec<Card> {
         .collect()
 }
 
-pub fn deal_hole_cards(deck: &mut Vec<Card>, players: &mut HashMap<String, Player>) -> () {
+pub fn deal_hole_cards(deck: &mut Vec<Card>, players: &mut HashMap<String, Player>) {
     players.iter_mut().for_each(|(_, p)| {
         let c1 = deck.pop().unwrap();
         let c2 = deck.pop().unwrap();

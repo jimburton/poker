@@ -16,10 +16,29 @@ pub enum Rank {
     King = 13,
     Ace = 14,
 }
-/// Helper method to get the numerical value of the rank for continuity checks.
+/// Helper methods
 impl Rank {
+    //  get the numerical value of the rank for continuity checks.
     pub fn value(&self) -> u8 {
         *self as u8
+    }
+
+    pub fn values() -> [Rank; 13] {
+        [
+            Rank::Rank2,
+            Rank::Rank3,
+            Rank::Rank4,
+            Rank::Rank5,
+            Rank::Rank6,
+            Rank::Rank7,
+            Rank::Rank8,
+            Rank::Rank9,
+            Rank::Rank10,
+            Rank::Jack,
+            Rank::Queen,
+            Rank::King,
+            Rank::Ace,
+        ]
     }
 }
 
@@ -29,6 +48,12 @@ pub enum Suit {
     Spades,
     Diamonds,
     Hearts,
+}
+
+impl Suit {
+    pub fn values() -> [Suit; 4] {
+        [Suit::Clubs, Suit::Spades, Suit::Diamonds, Suit::Hearts]
+    }
 }
 
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd, Clone, Copy)]
@@ -107,10 +132,11 @@ pub struct Game {
     pub side_pot: u64,
     pub stage: Stage,
     pub deck: Vec<Card>,
+    pub num_players: u8,
 }
 
 impl Game {
-    pub fn new(buy_in: u64) -> Self {
+    pub fn new(buy_in: u64, num_players: u8) -> Self {
         Game {
             players: HashMap::new(),
             dealer: None,
@@ -121,6 +147,7 @@ impl Game {
             side_pot: 0,
             stage: Stage::Blinds,
             deck: Vec::new(),
+            num_players,
         }
     }
 }

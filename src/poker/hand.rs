@@ -293,7 +293,29 @@ mod tests {
     use super::*;
     use crate::poker::types::{Card, Rank, Suit};
 
-    const HIGH_CARD: [Card; 5] = [
+    pub const HIGH_CARD_TEN: [Card; 5] = [
+        Card {
+            rank: Rank::Rank2,
+            suit: Suit::Clubs,
+        },
+        Card {
+            rank: Rank::Rank4,
+            suit: Suit::Diamonds,
+        },
+        Card {
+            rank: Rank::Rank7,
+            suit: Suit::Clubs,
+        },
+        Card {
+            rank: Rank::Rank10,
+            suit: Suit::Hearts,
+        },
+        Card {
+            rank: Rank::Rank3,
+            suit: Suit::Spades,
+        },
+    ];
+    pub const HIGH_CARD_ACE: [Card; 5] = [
         Card {
             rank: Rank::Rank2,
             suit: Suit::Clubs,
@@ -315,7 +337,7 @@ mod tests {
             suit: Suit::Spades,
         },
     ];
-    const ONE_PAIR: [Card; 5] = [
+    pub const ONE_PAIR_HC8: [Card; 5] = [
         Card {
             rank: Rank::Rank2,
             suit: Suit::Clubs,
@@ -337,7 +359,29 @@ mod tests {
             suit: Suit::Spades,
         },
     ];
-    const TWO_PAIR: [Card; 5] = [
+    pub const ONE_PAIR_HCJ: [Card; 5] = [
+        Card {
+            rank: Rank::Rank2,
+            suit: Suit::Clubs,
+        },
+        Card {
+            rank: Rank::Rank2,
+            suit: Suit::Diamonds,
+        },
+        Card {
+            rank: Rank::Rank3,
+            suit: Suit::Clubs,
+        },
+        Card {
+            rank: Rank::Rank4,
+            suit: Suit::Hearts,
+        },
+        Card {
+            rank: Rank::Jack,
+            suit: Suit::Spades,
+        },
+    ];
+    pub const TWO_PAIR: [Card; 5] = [
         Card {
             rank: Rank::Rank2,
             suit: Suit::Clubs,
@@ -359,7 +403,7 @@ mod tests {
             suit: Suit::Spades,
         },
     ];
-    const THREE_OF_A_KIND: [Card; 5] = [
+    pub const THREE_OF_A_KIND: [Card; 5] = [
         Card {
             rank: Rank::Rank2,
             suit: Suit::Clubs,
@@ -381,7 +425,7 @@ mod tests {
             suit: Suit::Spades,
         },
     ];
-    const STRAIGHT: [Card; 5] = [
+    pub const STRAIGHT: [Card; 5] = [
         Card {
             rank: Rank::Rank2,
             suit: Suit::Clubs,
@@ -403,7 +447,7 @@ mod tests {
             suit: Suit::Spades,
         },
     ];
-    const FLUSH: [Card; 5] = [
+    pub const FLUSH: [Card; 5] = [
         Card {
             rank: Rank::Rank2,
             suit: Suit::Clubs,
@@ -425,7 +469,7 @@ mod tests {
             suit: Suit::Clubs,
         },
     ];
-    const FULL_HOUSE: [Card; 5] = [
+    pub const FULL_HOUSE: [Card; 5] = [
         Card {
             rank: Rank::Rank2,
             suit: Suit::Clubs,
@@ -447,7 +491,7 @@ mod tests {
             suit: Suit::Spades,
         },
     ];
-    const FOUR_OF_A_KIND: [Card; 5] = [
+    pub const FOUR_OF_A_KIND: [Card; 5] = [
         Card {
             rank: Rank::Rank5,
             suit: Suit::Clubs,
@@ -469,7 +513,7 @@ mod tests {
             suit: Suit::Spades,
         },
     ];
-    const STRAIGHT_FLUSH: [Card; 5] = [
+    pub const STRAIGHT_FLUSH: [Card; 5] = [
         Card {
             rank: Rank::Rank5,
             suit: Suit::Clubs,
@@ -491,20 +535,19 @@ mod tests {
             suit: Suit::Clubs,
         },
     ];
+
     #[test]
     fn test_longest_sequence() {
-        let h1 = Vec::from(ONE_PAIR);
+        let h1 = Vec::from(ONE_PAIR_HC8);
         let ls_h1 = longest_sequence(&h1);
         let ls_h1_len = ls_h1.len();
-        //println!("Longest sequence: {:?}", ls_h1);
         assert!(
             ls_h1.len() == 3,
             "Longest sequence: expected 3, result was {ls_h1_len}"
         );
-        let h2 = Vec::from(HIGH_CARD);
+        let h2 = Vec::from(FOUR_OF_A_KIND);
         let ls_h2 = longest_sequence(&h2);
         let ls_h2_len = ls_h2.len();
-        //println!("Longest sequence: {:?}", ls_h2);
         assert!(
             ls_h2.len() == 1,
             "Longest sequence: expected 1, result was {ls_h2_len}"
@@ -513,7 +556,7 @@ mod tests {
 
     #[test]
     fn test_group_by_rank() {
-        let h1 = Vec::from(ONE_PAIR);
+        let h1 = Vec::from(ONE_PAIR_HC8);
         let gr_h1 = group_by_rank(&h1);
         assert!(
             gr_h1.len() == 4,
@@ -548,9 +591,9 @@ mod tests {
                 c.len()
             );
             assert!(
-                c.get(0).unwrap().rank == Rank::Rank5,
+                c.first().unwrap().rank == Rank::Rank5,
                 "group_by_rank(FOUR_OF_A_KIND): longest group should have Rank5 cards, was {:?}",
-                c.get(0).unwrap().rank
+                c.first().unwrap().rank
             );
         } else {
             panic!("group_by_rank(FOUR_OF_A_KIND): Nothing in the longest group")
@@ -559,7 +602,7 @@ mod tests {
 
     #[test]
     fn test_best_hand_high_card() {
-        let h1 = Vec::from(HIGH_CARD);
+        let h1 = Vec::from(HIGH_CARD_ACE);
         let bh_high_card = best_hand(&h1);
         if let Hand::HighCard(r) = bh_high_card {
             assert!(
@@ -577,7 +620,7 @@ mod tests {
 
     #[test]
     fn test_best_hand_one_pair() {
-        let h1 = Vec::from(ONE_PAIR);
+        let h1 = Vec::from(ONE_PAIR_HC8);
         let bh_one_pair = best_hand(&h1);
         if let Hand::OnePair(r) = bh_one_pair {
             assert!(
@@ -598,8 +641,10 @@ mod tests {
         let h1 = Vec::from(TWO_PAIR);
         let bh_two_pair = best_hand(&h1);
         if let Hand::TwoPair(r1, r2) = bh_two_pair {
+            let mut ranks: [Rank; 2] = [r1, r2];
+            ranks.sort();
             assert!(
-                r1 == Rank::Rank2 && r2 == Rank::Rank4,
+                ranks[0] == Rank::Rank2 && ranks[1] == Rank::Rank4,
                 "best_hand(TWO_PAIR): expected 2, 4, result was {:?},{:?}",
                 r1,
                 r2
@@ -763,5 +808,24 @@ mod tests {
         ];
         let bad = same_suit(&Vec::from(h2));
         assert!(!bad, "same_suit(h2): expected false, was {}", bad);
+    }
+
+    #[test]
+    fn test_compare_hands_simple() {
+        let p1 = "player1";
+        let p2 = "player2";
+        let mut w1 = compare_hands(
+            (p1.to_string(), &Vec::from(HIGH_CARD_ACE)),
+            (p2.to_string(), &Vec::from(ONE_PAIR_HC8)),
+        );
+        if let Winner::Winner { name, hand } = w1 {
+            assert!(
+                name == p2.to_string(),
+                "compare_hands: expecting player1, was {:?}",
+                name
+            );
+        } else {
+            panic!("compare_hands: was expecting Winner, was {:?}", w1);
+        }
     }
 }

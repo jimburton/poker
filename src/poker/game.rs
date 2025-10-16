@@ -1,8 +1,8 @@
 use rand::rng;
 use rand::seq::SliceRandom;
-use std::{cmp::Ordering, collections::HashMap};
+use std::collections::HashMap;
 
-use crate::poker::types::{Card, Game, Player, Rank, Stage, Suit, Winner};
+use crate::poker::types::{Card, Game, Player, Rank, Suit};
 
 pub fn play() -> Game {
     let mut game = Game::new(10, 5);
@@ -34,7 +34,7 @@ fn new_deck() -> Vec<Card> {
         .collect()
 }
 
-pub fn deal_hole_cards(mut deck: &mut Vec<Card>, players: &mut HashMap<String, Player>) -> () {
+pub fn deal_hole_cards(deck: &mut Vec<Card>, players: &mut HashMap<String, Player>) -> () {
     players.iter_mut().for_each(|(_, p)| {
         let c1 = deck.pop().unwrap();
         let c2 = deck.pop().unwrap();

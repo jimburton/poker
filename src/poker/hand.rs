@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::iter::zip;
 
-fn longest_sequence(cards: &Vec<Card>) -> Vec<Card> {
+pub fn longest_sequence(cards: &Vec<Card>) -> Vec<Card> {
     if cards.is_empty() {
         return Vec::new();
     }
@@ -90,7 +90,7 @@ fn longest_sequence(cards: &Vec<Card>) -> Vec<Card> {
     final_sequence_cards
 }
 
-fn group_by_rank(cards: &Vec<Card>) -> Vec<Vec<Card>> {
+pub fn group_by_rank(cards: &Vec<Card>) -> Vec<Vec<Card>> {
     let mut grouped_by_rank: HashMap<Rank, Vec<Card>> = HashMap::new();
 
     for card in cards.iter() {
@@ -101,7 +101,9 @@ fn group_by_rank(cards: &Vec<Card>) -> Vec<Vec<Card>> {
             // push the current card
             .push(*card);
     }
-    grouped_by_rank.into_values().collect()
+    let mut cs: Vec<Vec<Card>> = grouped_by_rank.into_values().collect();
+    cs.sort_by(|a, b| b.len().cmp(&a.len()));
+    cs
 }
 
 fn same_suit(cards: &Vec<Card>) -> bool {
@@ -138,14 +140,17 @@ pub fn best_hand(cards: &Vec<Card>) -> Hand {
         Hand::ThreeOfAKind(ranks[0][0].rank)
     } else if ranks.len() > 1 && ranks[0].len() == 2 && ranks[1].len() == 2 {
         Hand::TwoPair(ranks[0][0].rank, ranks[1][0].rank)
-    } else if ranks.len() > 0 && ranks[0].len() == 2 {
+    } else if !ranks.is_empty() && ranks[0].len() == 2 {
         Hand::OnePair(ranks[0][0].rank)
     } else {
         Hand::HighCard(cards.iter().max().unwrap().rank)
     }
 }
 
-fn compare_hands((name1, cs1): (String, &Vec<Card>), (name2, cs2): (String, &Vec<Card>)) -> Winner {
+pub fn compare_hands(
+    (name1, cs1): (String, &Vec<Card>),
+    (name2, cs2): (String, &Vec<Card>),
+) -> Winner {
     let h1 = best_hand(cs1);
     let h2 = best_hand(cs2);
     match h1.cmp(&h2) {
@@ -169,6 +174,7 @@ fn compare_hands((name1, cs1): (String, &Vec<Card>), (name2, cs2): (String, &Vec
             }
             (Hand::Flush(..), Hand::Flush(..)) => highest_cards((name1, cs1), (name2, cs2), h1, h2),
             (Hand::Straight(r1), Hand::Straight(r2)) => win_or_draw(&r1, h1, name1, &r2, h2, name2),
+
             (Hand::ThreeOfAKind(r1), Hand::ThreeOfAKind(r2)) => {
                 win_or_high(&r1, h1, name1, cs1, &r2, h2, name2, cs2)
             }

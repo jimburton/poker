@@ -4,21 +4,25 @@ use std::collections::HashMap;
 
 use crate::poker::types::{Card, Game, Player, Rank, Suit};
 
-pub fn play() -> Game {
-    let mut game = Game::new(10, 5);
+pub fn new_game(buy_in: usize, num_players: u8) -> Game {
+    Game::build(buy_in, num_players)
+}
+
+pub fn join<'a>(
+    name: &str,
+    bank_roll: usize,
+    game: &'a mut Game,
+) -> Result<&'a mut Game, &'static str> {
+    game.add_player(Player::build(name, bank_roll))
+        .or_else(|err| return Err(err));
+    Ok(game)
+}
+
+pub fn play(mut game: Game) -> Game {
     let mut deck = new_deck();
     let mut rng = rng();
     deck.shuffle(&mut rng);
     println!("Deck: {:?}", deck);
-
-    let mut players: HashMap<String, Player> = HashMap::new();
-
-    players.insert("James".to_string(), Player::new("James", 100));
-    players.insert("Bob".to_string(), Player::new("Bob", 100));
-    players.insert("Alice".to_string(), Player::new("Alice", 100));
-    players.insert("Dileas".to_string(), Player::new("Dileas", 100));
-    players.insert("Terry".to_string(), Player::new("Terry", 100));
-    game.players = players;
 
     deal_hole_cards(&mut deck, &mut game.players);
 

@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use num_traits::ToPrimitive;
+
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 pub enum Rank {
     Rank2 = 2,
@@ -98,18 +100,18 @@ pub enum Bet {
     Raise(u64),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Player {
     pub name: String,
     pub hole: Option<(Card, Card)>,
-    pub bet: u64,
-    pub bank_roll: u64,
+    pub bet: usize,
+    pub bank_roll: usize,
     pub all_in: bool,
     pub folded: bool,
 }
 
 impl Player {
-    pub fn new(name: &str, bank_roll: u64) -> Self {
+    pub fn build(name: &str, bank_roll: usize) -> Self {
         Player {
             name: name.to_string(),
             bank_roll,
@@ -126,17 +128,17 @@ pub struct Game {
     pub players: HashMap<String, Player>,
     pub dealer: Option<Player>,
     pub current_player: Option<Player>,
-    pub buy_in: u64,
-    pub call: u64,
-    pub pot: u64,
-    pub side_pot: u64,
+    pub buy_in: usize,
+    pub call: usize,
+    pub pot: usize,
+    pub side_pot: usize,
     pub stage: Stage,
     pub deck: Vec<Card>,
     pub num_players: u8,
 }
 
 impl Game {
-    pub fn new(buy_in: u64, num_players: u8) -> Self {
+    pub fn build(buy_in: usize, num_players: u8) -> Self {
         Game {
             players: HashMap::new(),
             dealer: None,
@@ -149,5 +151,22 @@ impl Game {
             deck: Vec::new(),
             num_players,
         }
+    }
+
+    pub fn full(&self) -> bool {
+        let num_players = self
+            .num_players
+            .to_usize()
+            .expect("Could not convert num_players to usize");
+        self.players.len() == num_players
+    }
+
+    pub fn add_player(&mut self, player: Player) -> Result<(), &'static str> {
+        let p = player.clone();
+        if self.full() {
+            return Err("Cannot add more players.");
+        }
+        &self.players.insert(p.name, p);
+        Ok(())
     }
 }

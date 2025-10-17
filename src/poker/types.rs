@@ -1,6 +1,9 @@
+use rand::{rng, seq::SliceRandom as _};
 use std::collections::HashMap;
 
 use num_traits::ToPrimitive;
+
+use crate::poker::hand::best_hand;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 pub enum Rank {
@@ -126,7 +129,7 @@ impl Player {
 #[derive(Debug)]
 pub struct Game {
     pub players: HashMap<String, Player>,
-    pub dealer: Option<Player>,
+    pub dealer: Option<String>,
     pub current_player: Option<Player>,
     pub buy_in: usize,
     pub call: usize,
@@ -134,12 +137,13 @@ pub struct Game {
     pub side_pot: usize,
     pub stage: Stage,
     pub deck: Vec<Card>,
+    pub community_cards: Vec<Card>,
     pub num_players: u8,
 }
 
 impl Game {
     pub fn build(buy_in: usize, num_players: u8) -> Self {
-        Game {
+        let mut game = Game {
             players: HashMap::new(),
             dealer: None,
             current_player: None,
@@ -149,8 +153,15 @@ impl Game {
             side_pot: 0,
             stage: Stage::Blinds,
             deck: Vec::new(),
+            community_cards: Vec::new(),
             num_players,
-        }
+        };
+        let mut deck = new_deck();
+        let mut rng = rng();
+        deck.shuffle(&mut rng);
+        game.deck = deck;
+
+        game
     }
 
     pub fn full(&self) -> bool {
@@ -161,12 +172,109 @@ impl Game {
         self.players.len() == num_players
     }
 
-    pub fn add_player(&mut self, player: Player) -> Result<(), &'static str> {
-        let p = player.clone();
+    pub fn add_player(&mut self, name: &str, bank_roll: usize) -> Result<(), &'static str> {
         if self.full() {
             return Err("Cannot add more players.");
         }
-        &self.players.insert(p.name, p);
+        let p = Player::build(name, bank_roll);
+        self.players.insert(name.to_string(), p);
+        if self.players.keys().len() == 0 {
+            self.dealer = Some(name.to_string());
+        }
         Ok(())
     }
+
+    pub fn play(&mut self) {
+        self.players_buy_in();
+        self.deal_hole_cards();
+        self.place_bets();
+        self.deal_flop();
+        self.place_bets();
+        self.deal_turn();
+        self.place_bets();
+        self.deal_river();
+        self.place_bets();
+        self.showdown();
+    }
+
+    pub fn players_buy_in(&mut self) {
+        self.players.iter_mut().for_each(|(_, p)| {
+            if p.bank_roll > self.buy_in {
+                p.bank_roll -= self.buy_in;
+                self.pot += self.buy_in;
+            }
+        });
+    }
+
+    pub fn deal_hole_cards(&mut self) {
+        let mut deck = self.deck.clone();
+        self.players.iter_mut().for_each(|(_, p)| {
+            let c1 = deck.pop().unwrap();
+            let c2 = deck.pop().unwrap();
+            p.hole = Some((c1, c2));
+        });
+        self.deck = deck;
+    }
+
+    pub fn deal_flop(&mut self) {
+        let mut deck = self.deck.clone();
+        let _burn = deck.pop().unwrap();
+        let c1 = deck.pop().unwrap();
+        let c2 = deck.pop().unwrap();
+        let c3 = deck.pop().unwrap();
+        self.community_cards.push(c1);
+        self.community_cards.push(c2);
+        self.community_cards.push(c3);
+        self.deck = deck;
+    }
+
+    pub fn deal_turn(&mut self) {
+        let mut deck = self.deck.clone();
+        let _burn = deck.pop().unwrap();
+        let c1 = deck.pop().unwrap();
+        self.community_cards.push(c1);
+        self.deck = deck;
+    }
+
+    pub fn deal_river(&mut self) {
+        let mut deck = self.deck.clone();
+        let _burn = deck.pop().unwrap();
+        let c1 = deck.pop().unwrap();
+        self.community_cards.push(c1);
+        self.deck = deck;
+    }
+
+    pub fn place_bets(&mut self) {
+        self.players.iter_mut().for_each(|(_, p)| {
+            if self.call == 0 {
+                self.call = 10
+            }
+            if p.bank_roll > self.call {
+                p.bank_roll -= self.call;
+                self.pot += self.call;
+            }
+        });
+    }
+
+    pub fn showdown(&mut self) {
+        let mut hands: Vec<(String, Hand)> = Vec::new();
+        self.players.iter_mut().for_each(|(_, p)| {
+            let (c1, c2) = p.hole.unwrap();
+            let mut ccards = self.community_cards.clone();
+            ccards.push(c1);
+            ccards.push(c2);
+            let best_hand = best_hand(&ccards);
+            let name = p.name.clone();
+            hands.push((name, best_hand));
+        });
+        hands.sort();
+        println!("Hands: {:?}", hands);
+    }
+}
+
+fn new_deck() -> Vec<Card> {
+    Rank::values()
+        .iter()
+        .flat_map(|i| Suit::values().map(move |j| Card { rank: *i, suit: j }))
+        .collect()
 }

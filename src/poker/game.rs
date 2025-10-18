@@ -333,10 +333,10 @@ impl Game {
                     let total_pot = self.pot + self.side_pot;
                     if let Some(player) = self.players.get_mut(name) {
                         player.bank_roll += total_pot;
-                        println!("\n--- Pot Distribution (outright winner) ---");
-                        println!("{} wins {} chips!", name, total_pot);
+                        dbg!("\n--- Pot Distribution (outright winner) ---");
+                        dbg!("{} wins {} chips!", name, total_pot);
                     } else {
-                        println!("Error: Winner {} not found in player list.", name);
+                        dbg!("Error: Winner {} not found in player list.", name);
                     }
                 }
                 Winner::Draw(draw_winners) => {
@@ -344,8 +344,8 @@ impl Game {
                     let num_winners = draw_winners.len();
                     let num_winners_not_all_in = draw_winners
                         .iter()
-                        .filter(|(name, hand, cards)| {
-                            println!("Looking for player: {}", name);
+                        .filter(|(name, _hand, _cards)| {
+                            dbg!("Looking for player: {}", name);
                             let p = self.players.get(name).expect("Couldn't find player");
                             !p.all_in
                         })
@@ -353,7 +353,7 @@ impl Game {
                         .len();
 
                     if num_winners == 0 {
-                        println!("Error: Draw with no winners found.");
+                        dbg!("Error: Draw with no winners found.");
                         return;
                     }
 
@@ -361,15 +361,15 @@ impl Game {
                     let side_pot_share = self.side_pot / num_winners_not_all_in;
                     let remainder = total_pot % num_winners;
 
-                    println!("\n--- Pot Distribution (draw) ---");
-                    println!(
+                    dbg!("\n--- Pot Distribution (draw) ---");
+                    dbg!(
                         "Draw between {} players. Each player not all-in receives {} chips.",
                         num_winners,
                         main_pot_share + side_pot_share
                     );
-                    println!("Each all-in player receives {} chips.", main_pot_share);
+                    dbg!("Each all-in player receives {} chips.", main_pot_share);
 
-                    // Distribute the share
+                    // Distribute the shares
                     for (name, _, _) in draw_winners.into_iter() {
                         if let Some(player) = self.players.get_mut(name) {
                             if player.all_in {
@@ -382,7 +382,7 @@ impl Game {
 
                     // Simplified remainder handling: just log it and drop it for now
                     if remainder > 0 {
-                        println!(
+                        dbg!(
                             "Note: {} chips remainder in the pot (unhandled in this implementation).",
                             remainder
                         );
@@ -393,7 +393,7 @@ impl Game {
             // Reset pots
             self.pot = 0;
             self.side_pot = 0;
-            println!("Pots reset to 0.");
+            dbg!("Pots reset to 0.");
         } else {
             dbg!("Winner not chosen.");
         }
@@ -494,7 +494,7 @@ mod tests {
             "Expected game.pot to be 80, was {}",
             game.pot
         );
-        game.players.iter().for_each(|(name, p)| {
+        game.players.iter().for_each(|(_name, p)| {
             assert!(
                 p.bank_roll == 60,
                 "Expected p.bank_roll to be 60, was {}.",
@@ -775,7 +775,7 @@ mod tests {
         let w = game.winner.clone();
 
         if let Some(Winner::Winner {
-            name: name,
+            name,
             hand: _hand,
             cards: _cards,
         }) = w
@@ -792,7 +792,7 @@ mod tests {
 
         // test a draw with no side pot
 
-        game.players.iter_mut().for_each(|(name, p)| {
+        game.players.iter_mut().for_each(|(_name, p)| {
             p.bank_roll = 0;
         });
         game.pot = 120;
@@ -823,7 +823,7 @@ mod tests {
         // test a draw with a side pot
 
         let _ = game.add_player("player3", 0);
-        game.players.iter_mut().for_each(|(name, p)| {
+        game.players.iter_mut().for_each(|(_name, p)| {
             p.bank_roll = 0;
             if p.name == "player2" || p.name == "player3" {
                 p.all_in = true;

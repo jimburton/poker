@@ -187,7 +187,7 @@ mod tests {
                     winners.len()
                 );
             }
-            Winner::Winner { name, hand, cards } => panic!("Expected a draw but {} won.", name),
+            Winner::Winner { name, .. } => panic!("Expected a draw but {} won.", name),
         }
         let c1 = Vec::from(HIGH_CARD_TEN);
         let p3 = "player3";
@@ -198,8 +198,8 @@ mod tests {
             Winner::Draw(_winners) => {
                 panic!("Expected a win for p3, draw");
             }
-            Winner::Winner { name, hand, cards } => {
-                assert!(name == p3.clone(), "Expected p3, was {}.", name)
+            Winner::Winner { name, .. } => {
+                assert!(name == p3, "Expected p3, was {}.", name)
             }
         }
     }
@@ -221,7 +221,7 @@ mod tests {
                     winners.len()
                 );
             }
-            Winner::Winner { name, hand, cards } => panic!("Expected a draw but {} won.", name),
+            Winner::Winner { name, .. } => panic!("Expected a draw but {} won.", name),
         }
     }
 

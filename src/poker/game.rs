@@ -5,7 +5,7 @@ use rand::rng;
 use rand::seq::SliceRandom;
 use std::collections::HashMap;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Winner {
     Winner {
         name: String,
@@ -61,17 +61,17 @@ pub fn new_game(buy_in: usize, num_players: u8) -> Game {
 
 #[derive(Debug)]
 pub struct Game {
-    pub players: HashMap<String, Player>,
-    pub dealer: Option<String>,
-    pub current_player: Option<Player>,
-    pub buy_in: usize,
-    pub call: usize,
-    pub pot: usize,
-    pub side_pot: usize,
-    pub stage: Stage,
-    pub deck: Vec<Card>,
-    pub community_cards: Vec<Card>,
-    pub num_players: u8,
+    players: HashMap<String, Player>,
+    dealer: Option<String>,
+    current_player: Option<Player>,
+    buy_in: usize,
+    call: usize,
+    pot: usize,
+    side_pot: usize,
+    deck: Vec<Card>,
+    community_cards: Vec<Card>,
+    num_players: u8,
+    side_pot_active: bool,
 }
 
 impl Game {
@@ -84,10 +84,10 @@ impl Game {
             call: 0,
             pot: 0,
             side_pot: 0,
-            stage: Stage::Blinds,
             deck: Vec::new(),
             community_cards: Vec::new(),
             num_players,
+            side_pot_active: false,
         };
         let mut deck = new_deck();
         let mut rng = rng();
@@ -97,7 +97,7 @@ impl Game {
         game
     }
 
-    pub fn full(&self) -> bool {
+    fn full(&self) -> bool {
         let num_players = self
             .num_players
             .to_usize()
@@ -135,6 +135,10 @@ impl Game {
             if p.bank_roll > self.buy_in {
                 p.bank_roll -= self.buy_in;
                 self.pot += self.buy_in;
+            } else if p.bank_roll > 0 {
+                self.pot += p.bank_roll;
+                p.bank_roll = 0;
+                p.all_in = true;
             }
         });
     }
@@ -180,17 +184,27 @@ impl Game {
     fn place_bets(&mut self) {
         self.players.iter_mut().for_each(|(_, p)| {
             if self.call == 0 {
-                self.call = 10
+                self.call = self.buy_in;
             }
+            // players always bet if they are first to go, then always call
             if p.bank_roll > self.call {
                 p.bank_roll -= self.call;
-                self.pot += self.call;
+                if self.side_pot_active && !p.all_in {
+                    self.side_pot += self.call;
+                } else {
+                    self.pot += self.call;
+                }
+            } else if p.bank_roll > 0 {
+                p.all_in = true;
+                self.side_pot_active = true;
+                self.pot += p.bank_roll;
+                p.bank_roll = 0;
             }
         });
     }
 
     /// Determines the winner(s) of the hand.
-    fn showdown(&mut self) {
+    pub fn showdown(&mut self) {
         // 1. Calculate the best hand for each non-folded player.
         let mut hands: Vec<(String, Hand, Vec<Card>)> = self
             .players
@@ -214,13 +228,13 @@ impl Game {
                 Some((p.name.clone(), best_hand, all_cards))
             })
             .collect();
-        dbg!("All hands: {:?}", &hands);
 
         // Handle cases where 0 or 1 players remain (the last player standing wins)
         if hands.len() < 2 {
             if let Some((name, hand, cards)) = hands.pop() {
                 let winner = Winner::Winner { name, hand, cards };
                 println!("Winner (last player standing): {:?}", winner);
+                self.distribute_pot(winner);
             } else {
                 println!("No players remaining to determine winner.");
             }
@@ -245,6 +259,7 @@ impl Game {
                 } => {
                     // Compare the current winner (w_...) against the challenger (challenger_...)
                     compare_hands(
+                        // Challenger data is moved here
                         (challenger_name, challenger_hand, challenger_cards),
                         (w_name, w_hand, w_cards),
                     )
@@ -256,6 +271,8 @@ impl Game {
                         draw_winners.pop().unwrap();
 
                     let comparison_result = compare_hands(
+                        // FIX: Clone challenger data for comparison call, so the originals are still
+                        // available to be moved into draw_winners if the result is a draw.
                         (
                             challenger_name.clone(),
                             challenger_hand,
@@ -290,7 +307,8 @@ impl Game {
                             }
                         }
                         Winner::Draw(_) => {
-                            // Challenger ties with the benchmark, add challenger to the draw group
+                            // Challenger ties with the benchmark, add challenger to the draw group.
+                            // The original (un-cloned) challenger values are now moved here.
                             draw_winners.push((challenger_name, challenger_hand, challenger_cards));
                             Winner::Draw(draw_winners)
                         }
@@ -299,7 +317,61 @@ impl Game {
             };
         }
 
-        dbg!("Final Showdown Result: {:?}", winner);
-        // TODO distribute the pot based on the 'winner' state.
+        dbg!("Final Showdown Result: {:?}", &winner);
+        // Distribute the pot to the determined winner(s)
+        self.distribute_pot(winner);
+    }
+
+    /// Distributes the pot and side pot to the winner(s) and resets the pot amounts.
+    pub fn distribute_pot(&mut self, winner: Winner) {
+        match winner {
+            Winner::Winner { name, .. } => {
+                let total_pot = self.pot + self.side_pot;
+                if let Some(player) = self.players.get_mut(&name) {
+                    player.bank_roll += total_pot;
+                    println!("\n--- Pot Distribution ---");
+                    println!("{} wins {} chips!", name, total_pot);
+                } else {
+                    println!("Error: Winner {} not found in player list.", name);
+                }
+            }
+            Winner::Draw(draw_winners) => {
+                let total_pot = self.pot + self.side_pot;
+                let num_winners = draw_winners.len();
+                if num_winners == 0 {
+                    println!("Error: Draw with no winners found.");
+                    return;
+                }
+
+                let share = total_pot / num_winners;
+                let remainder = total_pot % num_winners;
+
+                println!("\n--- Pot Distribution ---");
+                println!(
+                    "Draw between {} players. Each receives {} chips.",
+                    num_winners, share
+                );
+
+                // Distribute the share
+                for (name, _, _) in draw_winners.into_iter() {
+                    if let Some(player) = self.players.get_mut(&name) {
+                        player.bank_roll += share;
+                    }
+                }
+
+                // Simplified remainder handling: just log it and drop it for now
+                if remainder > 0 {
+                    println!(
+                        "Note: {} chips remainder in the pot (unhandled in this implementation).",
+                        remainder
+                    );
+                }
+            }
+        }
+
+        // Reset pots
+        self.pot = 0;
+        self.side_pot = 0;
+        println!("Pots reset to 0.");
     }
 }

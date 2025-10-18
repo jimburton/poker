@@ -7,7 +7,7 @@ pub fn longest_sequence(cards: &Vec<Card>) -> Vec<Card> {
         return Vec::new();
     }
 
-    // 1. Extract all unique ranks and sort them by their value.
+    // Extract unique ranks and sort them by their value.
     let unique_ranks_set: HashSet<Rank> = cards.iter().map(|card| card.rank).collect();
     let mut sorted_unique_ranks: Vec<Rank> = unique_ranks_set.into_iter().collect();
     sorted_unique_ranks.sort();
@@ -18,14 +18,13 @@ pub fn longest_sequence(cards: &Vec<Card>) -> Vec<Card> {
 
     // --- Find the range (start rank and length) of the longest sequence ---
 
-    // 2. Initialize tracking variables.
     let mut max_length = 0;
     let mut best_start_value: u8 = 0; // Value of the starting rank (e.g., 2 for Rank2)
 
     let mut current_length = 1;
     let mut current_start_value = sorted_unique_ranks[0].value(); // Start with the first rank
 
-    // 3. Iterate to find the longest continuous sequence of unique ranks.
+    // Iterate to find the longest continuous sequence of unique ranks.
     for i in 1..sorted_unique_ranks.len() {
         let current_rank_val = sorted_unique_ranks[i].value();
         let previous_rank_val = sorted_unique_ranks[i - 1].value();
@@ -46,7 +45,7 @@ pub fn longest_sequence(cards: &Vec<Card>) -> Vec<Card> {
         }
     }
 
-    // 4. Final check: Compare the last sequence with the recorded max length.
+    // Compare the last sequence with the recorded max length.
     if current_length > max_length {
         max_length = current_length;
         best_start_value = current_start_value;
@@ -60,7 +59,7 @@ pub fn longest_sequence(cards: &Vec<Card>) -> Vec<Card> {
 
     // --- Filter the original hand to collect the cards in the longest sequence (one card per rank) ---
 
-    // 5. Collect the actual cards, ensuring only one card is selected for each rank in the sequence.
+    // Collect the actual cards, ensuring only one card is selected for each rank in the sequence.
     let mut final_sequence_cards: Vec<Card> = Vec::new();
     // Use a HashSet to track which ranks have already been added to the final result
     let mut included_ranks: HashSet<Rank> = HashSet::new();
@@ -83,7 +82,7 @@ pub fn longest_sequence(cards: &Vec<Card>) -> Vec<Card> {
         }
     }
 
-    // 6. Sort the final sequence by rank for a clean, ordered result.
+    // Sort the final sequence by rank for a clean, ordered result.
     final_sequence_cards.sort_by_key(|card| card.rank);
 
     final_sequence_cards

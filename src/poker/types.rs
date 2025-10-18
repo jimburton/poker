@@ -260,7 +260,121 @@ impl Game {
         });
     }
 
+    /// Determines the winner(s) of the hand.
     pub fn showdown(&mut self) {
+        // 1. Calculate the best hand for each non-folded player.
+        let mut hands: Vec<(String, Hand, Vec<Card>)> = self
+            .players
+            .iter() // Use iter() since we don't need to mutate Player state here
+            .filter_map(|(_, p)| {
+                // Only consider players who haven't folded
+                if p.folded {
+                    return None;
+                }
+
+                let (c1, c2) = p.hole.expect("Hole cards should be dealt before showdown");
+
+                // Collect all 7 cards (2 hole + 5 community)
+                let mut all_cards = self.community_cards.clone();
+                all_cards.push(c1);
+                all_cards.push(c2);
+
+                let best_hand = best_hand(&all_cards);
+
+                // Returns an owned tuple for comparison
+                Some((p.name.clone(), best_hand, all_cards))
+            })
+            .collect();
+        println!("All hands: {:?}", hands);
+
+        // Handle cases where 0 or 1 players remain (the last player standing wins)
+        if hands.len() < 2 {
+            if let Some((name, hand, cards)) = hands.pop() {
+                let winner = Winner::Winner { name, hand, cards };
+                println!("Winner (last player standing): {:?}", winner);
+            } else {
+                println!("No players remaining to determine winner.");
+            }
+            return;
+        }
+
+        // 2. Initialize the winner with the first player's hand, consuming it from the vector.
+        let mut winner: Winner = {
+            let (name, hand, cards) = hands.remove(0);
+            Winner::Winner { name, hand, cards }
+        };
+
+        // 3. Compare the current winner against all remaining hands.
+        for (challenger_name, challenger_hand, challenger_cards) in hands {
+            // Match is used to consume the existing winner state and re-assign
+            // the result back to 'winner' for the next iteration.
+            winner = match winner {
+                Winner::Winner {
+                    name: w_name,
+                    hand: w_hand,
+                    cards: w_cards,
+                } => {
+                    // Compare the current winner (w_...) against the challenger (challenger_...)
+                    compare_hands(
+                        (challenger_name, challenger_hand, challenger_cards),
+                        (w_name, w_hand, w_cards),
+                    )
+                }
+                Winner::Draw(mut draw_winners) => {
+                    // If it's a draw, compare the challenger against the best hand in the draw group.
+                    // We can safely assume the first element of a Draw is the benchmark.
+                    let (w_name_benchmark, w_hand_benchmark, w_cards_benchmark) =
+                        draw_winners.pop().unwrap();
+
+                    let comparison_result = compare_hands(
+                        (
+                            challenger_name.clone(),
+                            challenger_hand,
+                            challenger_cards.clone(),
+                        ),
+                        (
+                            w_name_benchmark.clone(),
+                            w_hand_benchmark,
+                            w_cards_benchmark.clone(),
+                        ),
+                    );
+
+                    // Put the benchmark hand back for future comparisons or draw outcome
+                    draw_winners.push((w_name_benchmark, w_hand_benchmark, w_cards_benchmark));
+
+                    match comparison_result {
+                        Winner::Winner {
+                            name: n,
+                            hand: h,
+                            cards: c,
+                        } => {
+                            if n == challenger_name {
+                                // Challenger is better than the benchmark (and thus all previous winners)
+                                Winner::Winner {
+                                    name: n,
+                                    hand: h,
+                                    cards: c,
+                                }
+                            } else {
+                                // Challenger is worse than the benchmark, keep the existing draw group
+                                Winner::Draw(draw_winners)
+                            }
+                        }
+                        Winner::Draw(_) => {
+                            // Challenger ties with the benchmark, add challenger to the draw group
+                            draw_winners.push((challenger_name, challenger_hand, challenger_cards));
+                            Winner::Draw(draw_winners)
+                        }
+                    }
+                }
+            };
+        }
+
+        println!("Final Showdown Result: {:?}", winner);
+        // TODO distribute the pot based on the 'winner' state.
+    }
+
+    /*pub fn showdown(&mut self) {
         let mut hands: Vec<(String, Hand, Vec<Card>)> = Vec::new();
         self.players.iter_mut().for_each(|(_, p)| {
             let (c1, c2) = p.hole.unwrap();
@@ -272,7 +386,7 @@ impl Game {
             hands.push((name, best_hand, ccards));
         });
         let (winner, best_hand, cards): (String, Hand, Vec<Card>) = hands.pop().unwrap();
-        let winner: &Winner = &Winner::Winner {
+        let mut winner: Winner = Winner::Winner {
             name: winner,
             hand: best_hand,
             cards,
@@ -287,7 +401,7 @@ impl Game {
                 } => {
                     let wname_dref = wname.clone();
                     let wcards_dref = wcards.clone();
-                    let whand_dref = *whand;
+                    let whand_dref = whand;
                     let best =
                         compare_hands((name, hand, cards), (wname_dref, whand_dref, wcards_dref));
                     match best {
@@ -297,7 +411,7 @@ impl Game {
                             cards: c,
                         } => {
                             if n != *wname {
-                                let winner = &Winner::Winner {
+                                winner = Winner::Winner {
                                     name: n,
                                     hand: h,
                                     cards: c,
@@ -305,7 +419,7 @@ impl Game {
                             }
                         }
                         Winner::Draw(winners) => {
-                            let winner = &Winner::Draw(winners);
+                            winner = Winner::Draw(winners);
                         }
                     }
                 }
@@ -321,7 +435,7 @@ impl Game {
                             cards: c,
                         } => {
                             if n != w1_dref {
-                                let winner = &Winner::Winner {
+                                winner = Winner::Winner {
                                     name: n,
                                     hand: h,
                                     cards: c,
@@ -329,7 +443,7 @@ impl Game {
                             }
                         }
                         Winner::Draw(winners) => {
-                            let winner = &Winner::Draw(winners);
+                            winner = Winner::Draw(winners);
                         }
                     }
                 }
@@ -337,7 +451,7 @@ impl Game {
         }
         println!("Winner: {:?}", winner);
         println!("Hands: {:?}", hands_copy);
-    }
+    }*/
 }
 
 fn new_deck() -> Vec<Card> {

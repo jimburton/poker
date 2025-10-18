@@ -72,6 +72,7 @@ pub struct Game {
     community_cards: Vec<Card>,
     num_players: u8,
     side_pot_active: bool,
+    winner: Option<Winner>,
 }
 
 impl Game {
@@ -88,6 +89,7 @@ impl Game {
             community_cards: Vec::new(),
             num_players,
             side_pot_active: false,
+            winner: None,
         };
         let mut deck = new_deck();
         let mut rng = rng();
@@ -128,6 +130,7 @@ impl Game {
         self.deal_river();
         self.place_bets();
         self.showdown();
+        self.distribute_pot();
     }
 
     fn players_buy_in(&mut self) {
@@ -157,6 +160,7 @@ impl Game {
         let mut deck = self.deck.clone();
         let _burn = deck.pop().unwrap();
         let c1 = deck.pop().unwrap();
+
         let c2 = deck.pop().unwrap();
         let c3 = deck.pop().unwrap();
         self.community_cards.push(c1);
@@ -205,7 +209,7 @@ impl Game {
 
     /// Determines the winner(s) of the hand.
     pub fn showdown(&mut self) {
-        // 1. Calculate the best hand for each non-folded player.
+        // Calculate the best hand for each non-folded player.
         let mut hands: Vec<(String, Hand, Vec<Card>)> = self
             .players
             .iter() // Use iter() since we don't need to mutate Player state here
@@ -233,15 +237,15 @@ impl Game {
         if hands.len() < 2 {
             if let Some((name, hand, cards)) = hands.pop() {
                 let winner = Winner::Winner { name, hand, cards };
-                println!("Winner (last player standing): {:?}", winner);
-                self.distribute_pot(winner);
+                dbg!("Winner (last player standing): {:?}", &winner);
+                self.winner = Some(winner);
             } else {
-                println!("No players remaining to determine winner.");
+                dbg!("No players remaining to determine winner.");
             }
             return;
         }
 
-        // 2. Initialize the winner with the first player's hand, consuming it from the vector.
+        // Initialize the winner with the first player's hand, consuming it from the vector.
         let mut winner: Winner = {
             let (name, hand, cards) = hands.remove(0);
             Winner::Winner { name, hand, cards }
@@ -318,60 +322,546 @@ impl Game {
         }
 
         dbg!("Final Showdown Result: {:?}", &winner);
-        // Distribute the pot to the determined winner(s)
-        self.distribute_pot(winner);
+        self.winner = Some(winner);
     }
 
     /// Distributes the pot and side pot to the winner(s) and resets the pot amounts.
-    pub fn distribute_pot(&mut self, winner: Winner) {
-        match winner {
-            Winner::Winner { name, .. } => {
-                let total_pot = self.pot + self.side_pot;
-                if let Some(player) = self.players.get_mut(&name) {
-                    player.bank_roll += total_pot;
-                    println!("\n--- Pot Distribution ---");
-                    println!("{} wins {} chips!", name, total_pot);
-                } else {
-                    println!("Error: Winner {} not found in player list.", name);
-                }
-            }
-            Winner::Draw(draw_winners) => {
-                let total_pot = self.pot + self.side_pot;
-                let num_winners = draw_winners.len();
-                if num_winners == 0 {
-                    println!("Error: Draw with no winners found.");
-                    return;
-                }
-
-                let share = total_pot / num_winners;
-                let remainder = total_pot % num_winners;
-
-                println!("\n--- Pot Distribution ---");
-                println!(
-                    "Draw between {} players. Each receives {} chips.",
-                    num_winners, share
-                );
-
-                // Distribute the share
-                for (name, _, _) in draw_winners.into_iter() {
-                    if let Some(player) = self.players.get_mut(&name) {
-                        player.bank_roll += share;
+    pub fn distribute_pot(&mut self) {
+        if let Some(winner) = &self.winner {
+            match winner {
+                Winner::Winner { name, .. } => {
+                    let total_pot = self.pot + self.side_pot;
+                    if let Some(player) = self.players.get_mut(name) {
+                        player.bank_roll += total_pot;
+                        println!("\n--- Pot Distribution (outright winner) ---");
+                        println!("{} wins {} chips!", name, total_pot);
+                    } else {
+                        println!("Error: Winner {} not found in player list.", name);
                     }
                 }
+                Winner::Draw(draw_winners) => {
+                    let total_pot = self.pot + self.side_pot;
+                    let num_winners = draw_winners.len();
+                    let num_winners_not_all_in = draw_winners
+                        .iter()
+                        .filter(|(name, hand, cards)| {
+                            println!("Looking for player: {}", name);
+                            let p = self.players.get(name).expect("Couldn't find player");
+                            !p.all_in
+                        })
+                        .collect::<Vec<_>>()
+                        .len();
 
-                // Simplified remainder handling: just log it and drop it for now
-                if remainder > 0 {
+                    if num_winners == 0 {
+                        println!("Error: Draw with no winners found.");
+                        return;
+                    }
+
+                    let main_pot_share = self.pot / num_winners;
+                    let side_pot_share = self.side_pot / num_winners_not_all_in;
+                    let remainder = total_pot % num_winners;
+
+                    println!("\n--- Pot Distribution (draw) ---");
                     println!(
-                        "Note: {} chips remainder in the pot (unhandled in this implementation).",
-                        remainder
+                        "Draw between {} players. Each player not all-in receives {} chips.",
+                        num_winners,
+                        main_pot_share + side_pot_share
                     );
+                    println!("Each all-in player receives {} chips.", main_pot_share);
+
+                    // Distribute the share
+                    for (name, _, _) in draw_winners.into_iter() {
+                        if let Some(player) = self.players.get_mut(name) {
+                            if player.all_in {
+                                player.bank_roll += main_pot_share;
+                            } else {
+                                player.bank_roll += main_pot_share + side_pot_share;
+                            }
+                        }
+                    }
+
+                    // Simplified remainder handling: just log it and drop it for now
+                    if remainder > 0 {
+                        println!(
+                            "Note: {} chips remainder in the pot (unhandled in this implementation).",
+                            remainder
+                        );
+                    }
                 }
             }
+
+            // Reset pots
+            self.pot = 0;
+            self.side_pot = 0;
+            println!("Pots reset to 0.");
+        } else {
+            dbg!("Winner not chosen.");
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::poker::card::{Card, Hand, Rank, Suit};
+
+    #[test]
+    fn test_build() {
+        let game = Game::build(10, 5);
+        assert!(
+            game.deck.len() == 52,
+            "Expected game.deck to have 42 cards, was {}",
+            game.deck.len()
+        );
+    }
+
+    #[test]
+    fn test_add_player() {
+        let mut game = Game::build(10, 2);
+        let _ = game.add_player("player1", 100);
+        let _ = game.add_player("player2", 100);
+        if let Err(e) = game.add_player("player3", 100) {
+            assert!(
+                e == "Cannot add more players.",
+                "Expected 'Cannot add more players.', was {}",
+                e
+            );
+        } else {
+            panic!("Expected add_player to raise an error.");
+        }
+    }
+
+    #[test]
+    fn test_players_buy_in() {
+        let mut game = Game::build(20, 2);
+        let _ = game.add_player("player1", 100);
+        let _ = game.add_player("player2", 100);
+        game.players_buy_in();
+        assert!(
+            game.pot == 40,
+            "Expected game.pot to be 40, was {}",
+            game.pot
+        );
+        game.players.iter().for_each(|(_name, p)| {
+            assert!(
+                p.bank_roll == 80,
+                "Expected p.bank_roll to be 80, was {}",
+                p.bank_roll
+            )
+        });
+    }
+
+    #[test]
+    fn test_deal_hole_cards() {
+        let mut game = Game::build(20, 2);
+        let _ = game.add_player("player1", 100);
+        let _ = game.add_player("player2", 100);
+        game.players_buy_in();
+        game.deal_hole_cards();
+        assert!(
+            game.deck.len() == 48,
+            "Expected game.deck.len() to be 48, was {}",
+            game.deck.len()
+        );
+        game.players.iter().for_each(|(name, p)| {
+            if let Some((c1, c2)) = p.hole {
+                assert!(
+                    !game.deck.contains(&c1),
+                    "Expected {:?} not to be in game.deck but it was.",
+                    c1
+                );
+                assert!(
+                    !game.deck.contains(&c2),
+                    "Expected {:?} not to be in game.deck but it was.",
+                    c2
+                );
+            } else {
+                panic!("Expected hole cards for player {}", name);
+            }
+        });
+    }
+
+    #[test]
+    fn test_place_bets() {
+        let mut game = Game::build(20, 2);
+        let _ = game.add_player("player1", 100);
+        let _ = game.add_player("player2", 100);
+        game.players_buy_in();
+        game.deal_hole_cards();
+        game.place_bets();
+        assert!(
+            game.pot == 80,
+            "Expected game.pot to be 80, was {}",
+            game.pot
+        );
+        game.players.iter().for_each(|(name, p)| {
+            assert!(
+                p.bank_roll == 60,
+                "Expected p.bank_roll to be 60, was {}.",
+                p.bank_roll
+            );
+        });
+    }
+
+    #[test]
+    fn test_deal_flop() {
+        let mut game = Game::build(20, 2);
+        let _ = game.add_player("player1", 100);
+        let _ = game.add_player("player2", 100);
+        game.players_buy_in();
+        game.deal_hole_cards();
+        game.place_bets();
+        game.deal_flop();
+        assert!(
+            game.deck.len() == 44,
+            "Expected game.deck.len() to be 44, was {}",
+            game.deck.len()
+        );
+        assert!(
+            game.community_cards.len() == 3,
+            "Expected 3 community cards, was {}",
+            game.community_cards.len()
+        );
+        game.community_cards.iter().for_each(|c: &Card| {
+            assert!(
+                !game.deck.contains(c),
+                "Expected {:?} not to be in game.deck but it was.",
+                c
+            );
+        });
+    }
+
+    #[test]
+    fn test_deal_turn() {
+        let mut game = Game::build(20, 2);
+        let _ = game.add_player("player1", 100);
+        let _ = game.add_player("player2", 100);
+        game.players_buy_in();
+        game.deal_hole_cards();
+        game.place_bets();
+        game.deal_flop();
+        game.place_bets();
+        game.deal_turn();
+        assert!(
+            game.deck.len() == 42,
+            "Expected game.deck.len() to be 42, was {}",
+            game.deck.len()
+        );
+        assert!(
+            game.community_cards.len() == 4,
+            "Expected 4 community cards, was {}",
+            game.community_cards.len()
+        );
+        game.community_cards.iter().for_each(|c: &Card| {
+            assert!(
+                !game.deck.contains(c),
+                "Expected {:?} not to be in game.deck but it was.",
+                c
+            );
+        });
+    }
+
+    #[test]
+    fn test_deal_river() {
+        let mut game = Game::build(20, 2);
+        let _ = game.add_player("player1", 100);
+        let _ = game.add_player("player2", 100);
+        game.players_buy_in();
+        game.deal_hole_cards();
+        game.place_bets();
+        game.deal_flop();
+        game.place_bets();
+        game.deal_turn();
+        game.place_bets();
+        game.deal_river();
+        assert!(
+            game.deck.len() == 40,
+            "Expected game.deck.len() to be 40, was {}",
+            game.deck.len()
+        );
+        assert!(
+            game.community_cards.len() == 5,
+            "Expected 5 community cards, was {}",
+            game.community_cards.len()
+        );
+        game.community_cards.iter().for_each(|c: &Card| {
+            assert!(
+                !game.deck.contains(c),
+                "Expected {:?} not to be in game.deck but it was.",
+                c
+            );
+        });
+    }
+
+    #[test]
+    fn test_showdown() {
+        let mut game = Game::build(20, 2);
+        let _ = game.add_player("player1", 100);
+        let _ = game.add_player("player2", 100);
+
+        // test outight winner
+        let p1_hole = Some((
+            Card {
+                rank: Rank::Rank10,
+                suit: Suit::Clubs,
+            },
+            Card {
+                rank: Rank::Rank4,
+                suit: Suit::Clubs,
+            },
+        ));
+
+        let p2_hole = Some((
+            Card {
+                rank: Rank::Rank8,
+                suit: Suit::Clubs,
+            },
+            Card {
+                rank: Rank::Rank4,
+                suit: Suit::Hearts,
+            },
+        ));
+        game.players.iter_mut().for_each(|(name, p)| {
+            if name == "player1" {
+                p.hole = p1_hole;
+            } else {
+                p.hole = p2_hole;
+            }
+        });
+
+        game.community_cards = vec![
+            Card {
+                rank: Rank::Rank2,
+                suit: Suit::Clubs,
+            },
+            Card {
+                rank: Rank::Jack,
+                suit: Suit::Clubs,
+            },
+            Card {
+                rank: Rank::King,
+                suit: Suit::Clubs,
+            },
+            Card {
+                rank: Rank::Rank4,
+                suit: Suit::Diamonds,
+            },
+            Card {
+                rank: Rank::Rank5,
+                suit: Suit::Hearts,
+            },
+        ];
+
+        game.showdown();
+
+        let w = game.winner.clone();
+
+        if let Some(Winner::Winner {
+            name: n,
+            hand: h,
+            cards: _cs,
+        }) = w
+        {
+            assert!(n == "player1", "Expected player1, was {}", n);
+            assert!(
+                h == Hand::Flush(
+                    Rank::Rank2,
+                    Rank::Rank4,
+                    Rank::Rank10,
+                    Rank::Jack,
+                    Rank::King
+                ),
+                "Expected Flush(K), was {:?}",
+                h
+            );
+        } else {
+            panic!("Expected a winner.");
+        }
+        // test a draw
+
+        let p1_hole = Some((
+            Card {
+                rank: Rank::Rank10,
+                suit: Suit::Clubs,
+            },
+            Card {
+                rank: Rank::Rank4,
+                suit: Suit::Diamonds,
+            },
+        ));
+
+        let p2_hole = Some((
+            Card {
+                rank: Rank::Rank10,
+                suit: Suit::Spades,
+            },
+            Card {
+                rank: Rank::Rank4,
+                suit: Suit::Clubs,
+            },
+        ));
+
+        game.players.iter_mut().for_each(|(name, p)| {
+            if name == "player1" {
+                p.hole = p1_hole;
+            } else {
+                p.hole = p2_hole;
+            }
+        });
+
+        game.community_cards = vec![
+            Card {
+                rank: Rank::Rank10,
+                suit: Suit::Hearts,
+            },
+            Card {
+                rank: Rank::Rank8,
+                suit: Suit::Spades,
+            },
+            Card {
+                rank: Rank::King,
+                suit: Suit::Diamonds,
+            },
+            Card {
+                rank: Rank::Rank3,
+                suit: Suit::Hearts,
+            },
+            Card {
+                rank: Rank::Rank2,
+                suit: Suit::Hearts,
+            },
+        ];
+
+        game.showdown();
+
+        let w = game.winner.clone();
+
+        if let Some(Winner::Draw(winners)) = w {
+            assert!(
+                winners.len() == 2,
+                "Expected 2 winners, was {}",
+                winners.len()
+            );
+            winners.iter().for_each(|(_name, h, _cs)| {
+                assert!(
+                    h == &Hand::OnePair(Rank::Rank10),
+                    "Expected player to have OnePair(10), was {:?}.",
+                    h
+                );
+            });
+        } else {
+            panic!("Expected a draw.");
+        }
+    }
+
+    #[test]
+    fn test_distribute_pot() {
+        let mut game = Game::build(20, 3);
+        let _ = game.add_player("player1", 0);
+        let _ = game.add_player("player2", 0);
+
+        // test outight winner
+        game.pot = 120;
+        game.winner = Some(Winner::Winner {
+            name: "player1".to_string(),
+            hand: Hand::HighCard(Rank::Ace),
+            cards: Vec::new(),
+        });
+
+        game.distribute_pot();
+
+        assert!(game.pot == 0, "Expected game.pot == 0, was {}", game.pot);
+
+        let w = game.winner.clone();
+
+        if let Some(Winner::Winner {
+            name: name,
+            hand: _hand,
+            cards: _cards,
+        }) = w
+        {
+            let p = game.players.get(&name).unwrap();
+            assert!(
+                p.bank_roll == 120,
+                "Expected winner bankroll to be 120, was {}",
+                p.bank_roll
+            );
+        } else {
+            panic!("Expected a winner.");
         }
 
-        // Reset pots
-        self.pot = 0;
-        self.side_pot = 0;
-        println!("Pots reset to 0.");
+        // test a draw with no side pot
+
+        game.players.iter_mut().for_each(|(name, p)| {
+            p.bank_roll = 0;
+        });
+        game.pot = 120;
+        game.winner = Some(Winner::Draw(vec![
+            ("player1".to_string(), Hand::HighCard(Rank::Ace), Vec::new()),
+            ("player2".to_string(), Hand::HighCard(Rank::Ace), Vec::new()),
+        ]));
+
+        game.distribute_pot();
+
+        assert!(game.pot == 0, "Expected game.pot == 0, was {}", game.pot);
+
+        let w = game.winner.clone();
+
+        if let Some(Winner::Draw(winners)) = w {
+            winners.iter().for_each(|(name, _h, _cs)| {
+                let p = game.players.get(name).unwrap();
+                assert!(
+                    p.bank_roll == 60,
+                    "Expected player to have bankroll == 60, was {}.",
+                    p.bank_roll
+                );
+            });
+        } else {
+            panic!("Expected a draw.");
+        }
+
+        // test a draw with a side pot
+
+        let _ = game.add_player("player3", 0);
+        game.players.iter_mut().for_each(|(name, p)| {
+            p.bank_roll = 0;
+            if p.name == "player2" || p.name == "player3" {
+                p.all_in = true;
+            }
+        });
+        game.pot = 120;
+        game.side_pot = 60;
+        game.winner = Some(Winner::Draw(vec![
+            ("player1".to_string(), Hand::HighCard(Rank::Ace), Vec::new()),
+            ("player2".to_string(), Hand::HighCard(Rank::Ace), Vec::new()),
+            ("player3".to_string(), Hand::HighCard(Rank::Ace), Vec::new()),
+        ]));
+
+        game.distribute_pot();
+
+        assert!(game.pot == 0, "Expected game.pot == 0, was {}", game.pot);
+
+        let w = game.winner.clone();
+
+        if let Some(Winner::Draw(winners)) = w {
+            winners.iter().for_each(|(name, _h, _cs)| {
+                let p = game.players.get(name).unwrap();
+                if p.name == "player1" {
+                    assert!(
+                        p.bank_roll == 100,
+                        "Expected non-all inplayer to have bankroll == 100, was {}.",
+                        p.bank_roll
+                    );
+                } else {
+                    assert!(
+                        p.bank_roll == 40,
+                        "Expected all in player to have bankroll == 40, was {}.",
+                        p.bank_roll
+                    );
+                }
+            });
+        } else {
+            panic!("Expected a draw.");
+        }
     }
 }

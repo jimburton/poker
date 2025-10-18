@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::poker::card::{Card, Rank};
+use crate::poker::card::{Card, Rank, Suit};
 
 pub fn longest_sequence(cards: &Vec<Card>) -> Vec<Card> {
     if cards.is_empty() {
@@ -104,6 +104,26 @@ pub fn group_by_rank(cards: &Vec<Card>) -> Vec<Vec<Card>> {
     cs
 }
 
+pub fn group_by_suit(cards: &Vec<Card>) -> Vec<Vec<Card>> {
+    let mut grouped_by_suit: HashMap<Suit, Vec<Card>> = HashMap::new();
+
+    for card in cards.iter() {
+        grouped_by_suit
+            .entry(card.suit)
+            // if the key doesn't exist, insert a new vec
+            .or_insert_with(Vec::new)
+            // push the current card
+            .push(*card);
+    }
+    let mut cs: Vec<Vec<Card>> = grouped_by_suit.into_values().collect();
+    // sort the inner lists by rank descending
+    cs.iter_mut()
+        .for_each(|inner| inner.sort_by(|a, b| b.rank.cmp(&a.rank)));
+    // sort the outer lists by length
+    cs.sort_by(|a, b| b.len().cmp(&a.len()));
+    cs
+}
+
 pub fn same_suit(cards: &Vec<Card>) -> bool {
     if cards.len() == 0 {
         true
@@ -116,8 +136,8 @@ pub fn same_suit(cards: &Vec<Card>) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::poker::card::{Card, Rank, Suit};
     use crate::poker::test_data::*;
-    use crate::poker::types::{Card, Hand, Rank, Suit, Winner};
 
     #[test]
     fn test_longest_sequence() {

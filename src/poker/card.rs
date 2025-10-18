@@ -40,7 +40,7 @@ impl Rank {
     }
 }
 
-#[derive(Debug, Eq, Ord, PartialEq, PartialOrd, Clone, Copy)]
+#[derive(Debug, Eq, Ord, PartialEq, PartialOrd, Clone, Copy, Hash)]
 pub enum Suit {
     Clubs,
     Spades,

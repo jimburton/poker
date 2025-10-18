@@ -2,22 +2,24 @@ use std::cmp::Ordering;
 
 use crate::poker::card::{Card, Hand};
 use crate::poker::game::Winner;
-use crate::poker::sequence::{group_by_rank, longest_sequence, same_suit};
+use crate::poker::sequence::{group_by_rank, group_by_suit, longest_sequence, same_suit};
 
 pub fn best_hand(cards: &Vec<Card>) -> Hand {
     let mut cs = cards.clone();
     cs.sort_by(|a, b| b.rank.cmp(&a.rank));
     let ls = longest_sequence(&cs);
     let ranks = group_by_rank(cards);
+    let suits = group_by_suit(cards);
     if same_suit(cards) && ls.len() == 5 {
         Hand::StraightFlush(cards[cards.len() - 1].rank)
     } else if !ranks.is_empty() && ranks[0].len() == 4 {
         Hand::FourOfAKind(ranks[0][0].rank)
     } else if ranks.len() > 1 && ranks[0].len() == 3 && ranks[1].len() == 2 {
         Hand::FullHouse(ranks[0][0].rank, ranks[1][0].rank)
-    } else if same_suit(cards) {
-        Hand::Flush(cs[4].rank, cs[3].rank, cs[2].rank, cs[1].rank, cs[0].rank)
-    } else if ls.len() == 5 {
+    } else if !suits.is_empty() && suits[0].len() >= 5 {
+        let ls = suits.get(0).unwrap();
+        Hand::Flush(ls[4].rank, ls[3].rank, ls[2].rank, ls[1].rank, ls[0].rank)
+    } else if ls.len() >= 5 {
         Hand::Straight(cards.iter().map(|a| a.rank).max().unwrap())
     } else if ranks.len() > 0 && ranks[0].len() == 3 {
         Hand::ThreeOfAKind(ranks[0][0].rank)
@@ -166,8 +168,8 @@ fn highest_cards(hand_a: (String, Hand, Vec<Card>), hand_b: (String, Hand, Vec<C
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::poker::card::{Hand, Rank};
     use crate::poker::test_data::*;
-    use crate::poker::types::{Card, Hand, Rank, Suit, Winner};
 
     #[test]
     fn test_highest_cards() {
@@ -305,6 +307,24 @@ mod tests {
         if let Hand::Straight(r) = bh_s {
             assert!(
                 r == Rank::Rank6,
+                "best_hand(STRAIGHT): expected 6, result was {:?}",
+                r
+            );
+        } else {
+            panic!(
+                "best_hand(STRAIGHT): expected Hand::Straight, result was {:?}",
+                bh_s
+            );
+        }
+    }
+
+    #[test]
+    fn test_best_hand_straight_seven_cards() {
+        let h1 = Vec::from(STRAIGHT_7);
+        let bh_s = best_hand(&h1);
+        if let Hand::Straight(r) = bh_s {
+            assert!(
+                r == Rank::King,
                 "best_hand(STRAIGHT): expected 6, result was {:?}",
                 r
             );

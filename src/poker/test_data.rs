@@ -224,6 +224,37 @@ pub const STRAIGHT: [Card; 5] = [
     },
 ];
 #[allow(dead_code)]
+pub const STRAIGHT_7: [Card; 7] = [
+    Card {
+        rank: Rank::Rank4,
+        suit: Suit::Clubs,
+    },
+    Card {
+        rank: Rank::Rank5,
+        suit: Suit::Hearts,
+    },
+    Card {
+        rank: Rank::Rank6,
+        suit: Suit::Clubs,
+    },
+    Card {
+        rank: Rank::Rank7,
+        suit: Suit::Diamonds,
+    },
+    Card {
+        rank: Rank::Rank8,
+        suit: Suit::Diamonds,
+    },
+    Card {
+        rank: Rank::King,
+        suit: Suit::Clubs,
+    },
+    Card {
+        rank: Rank::King,
+        suit: Suit::Spades,
+    },
+];
+#[allow(dead_code)]
 pub const FLUSH: [Card; 5] = [
     Card {
         rank: Rank::Rank2,

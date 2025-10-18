@@ -1,4 +1,4 @@
-use poker::poker::types::Game;
+use poker::poker::game::Game;
 
 fn main() {
     let mut g: Game = Game::build(100, 3);

@@ -1,5 +1,6 @@
-use crate::poker::types::{Card, Rank, Suit};
+use crate::poker::card::{Card, Rank, Suit};
 
+#[allow(dead_code)]
 pub const HIGH_CARD_TEN: [Card; 5] = [
     Card {
         rank: Rank::Rank2,
@@ -22,6 +23,7 @@ pub const HIGH_CARD_TEN: [Card; 5] = [
         suit: Suit::Spades,
     },
 ];
+#[allow(dead_code)]
 pub const HIGH_CARD_ACE: [Card; 5] = [
     Card {
         rank: Rank::Rank2,
@@ -44,6 +46,7 @@ pub const HIGH_CARD_ACE: [Card; 5] = [
         suit: Suit::Spades,
     },
 ];
+#[allow(dead_code)]
 pub const ONE_PAIR_8_1: [Card; 7] = [
     Card {
         rank: Rank::Rank5,
@@ -74,6 +77,7 @@ pub const ONE_PAIR_8_1: [Card; 7] = [
         suit: Suit::Diamonds,
     },
 ];
+#[allow(dead_code)]
 pub const ONE_PAIR_8_2: [Card; 7] = [
     Card {
         rank: Rank::Rank5,
@@ -104,6 +108,7 @@ pub const ONE_PAIR_8_2: [Card; 7] = [
         suit: Suit::Clubs,
     },
 ];
+#[allow(dead_code)]
 pub const ONE_PAIR_HC8: [Card; 5] = [
     Card {
         rank: Rank::Rank2,
@@ -126,6 +131,7 @@ pub const ONE_PAIR_HC8: [Card; 5] = [
         suit: Suit::Spades,
     },
 ];
+#[allow(dead_code)]
 pub const ONE_PAIR_HCJ: [Card; 5] = [
     Card {
         rank: Rank::Rank2,
@@ -148,6 +154,7 @@ pub const ONE_PAIR_HCJ: [Card; 5] = [
         suit: Suit::Spades,
     },
 ];
+#[allow(dead_code)]
 pub const TWO_PAIR: [Card; 5] = [
     Card {
         rank: Rank::Rank2,
@@ -170,6 +177,7 @@ pub const TWO_PAIR: [Card; 5] = [
         suit: Suit::Spades,
     },
 ];
+#[allow(dead_code)]
 pub const THREE_OF_A_KIND: [Card; 5] = [
     Card {
         rank: Rank::Rank2,
@@ -192,6 +200,7 @@ pub const THREE_OF_A_KIND: [Card; 5] = [
         suit: Suit::Spades,
     },
 ];
+#[allow(dead_code)]
 pub const STRAIGHT: [Card; 5] = [
     Card {
         rank: Rank::Rank2,
@@ -214,6 +223,7 @@ pub const STRAIGHT: [Card; 5] = [
         suit: Suit::Spades,
     },
 ];
+#[allow(dead_code)]
 pub const FLUSH: [Card; 5] = [
     Card {
         rank: Rank::Rank2,
@@ -236,6 +246,7 @@ pub const FLUSH: [Card; 5] = [
         suit: Suit::Clubs,
     },
 ];
+#[allow(dead_code)]
 pub const FULL_HOUSE: [Card; 5] = [
     Card {
         rank: Rank::Rank2,
@@ -258,6 +269,7 @@ pub const FULL_HOUSE: [Card; 5] = [
         suit: Suit::Spades,
     },
 ];
+#[allow(dead_code)]
 pub const FOUR_OF_A_KIND: [Card; 5] = [
     Card {
         rank: Rank::Rank5,
@@ -280,6 +292,7 @@ pub const FOUR_OF_A_KIND: [Card; 5] = [
         suit: Suit::Spades,
     },
 ];
+#[allow(dead_code)]
 pub const STRAIGHT_FLUSH: [Card; 5] = [
     Card {
         rank: Rank::Rank5,

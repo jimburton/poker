@@ -1,8 +1,8 @@
 use std::cmp::Ordering;
-use std::iter::zip;
 
+use crate::poker::card::{Card, Hand};
+use crate::poker::game::Winner;
 use crate::poker::sequence::{group_by_rank, longest_sequence, same_suit};
-use crate::poker::types::{Card, Hand, Rank, Winner};
 
 pub fn best_hand(cards: &Vec<Card>) -> Hand {
     let mut cs = cards.clone();
@@ -53,7 +53,7 @@ pub fn compare_hands(
     } else {
         match (h_a, h_b) {
             // If two straight flushes have the same highest card, it's a draw
-            (Hand::StraightFlush(r1), Hand::StraightFlush(r2)) => {
+            (Hand::StraightFlush(_r1), Hand::StraightFlush(_r2)) => {
                 Winner::Draw(vec![(name_a, h_a, c_a), (name_b, h_b, c_b)])
             }
             // No draw for two four of a kinds
@@ -206,10 +206,10 @@ mod tests {
     fn test_compare_hands() {
         let c1 = Vec::from(ONE_PAIR_8_1);
         let p1 = "player1";
-        let h1 = Hand::OnePair(Rank::Rank5);
+        let h1 = Hand::OnePair(Rank::Rank8);
         let c2 = Vec::from(ONE_PAIR_8_2);
         let p2 = "player2";
-        let h2 = Hand::OnePair(Rank::Rank5);
+        let h2 = Hand::OnePair(Rank::Rank8);
         let w = compare_hands((p1.to_string(), h1, c1), (p2.to_string(), h2, c2));
         match w {
             Winner::Draw(winners) => {
@@ -220,6 +220,180 @@ mod tests {
                 );
             }
             Winner::Winner { name, hand, cards } => panic!("Expected a draw but {} won.", name),
+        }
+    }
+
+    #[test]
+    fn test_best_hand_high_card() {
+        let h1 = Vec::from(HIGH_CARD_ACE);
+        let bh_high_card = best_hand(&h1);
+        if let Hand::HighCard(r) = bh_high_card {
+            assert!(
+                r == Rank::Ace,
+                "best_hand(HIGH_CARD): expected Ace, result was {:?}",
+                r
+            );
+        } else {
+            panic!(
+                "best_hand(HIGH_CARD): expected Hand::HIGH_CARD, result was {:?}",
+                bh_high_card
+            );
+        }
+    }
+
+    #[test]
+    fn test_best_hand_one_pair() {
+        let h1 = Vec::from(ONE_PAIR_HC8);
+        let bh_one_pair = best_hand(&h1);
+        if let Hand::OnePair(r) = bh_one_pair {
+            assert!(
+                r == Rank::Rank2,
+                "best_hand(ONE_PAIR): expected 2, result was {:?}",
+                r
+            );
+        } else {
+            panic!(
+                "best_hand(ONE_PAIR): expected Hand::OnePair, result was {:?}",
+                bh_one_pair
+            );
+        }
+    }
+
+    #[test]
+    fn test_best_hand_two_pair() {
+        let h1 = Vec::from(TWO_PAIR);
+        let bh_two_pair = best_hand(&h1);
+        if let Hand::TwoPair(r1, r2) = bh_two_pair {
+            let mut ranks: [Rank; 2] = [r1, r2];
+            ranks.sort();
+            assert!(
+                ranks[0] == Rank::Rank2 && ranks[1] == Rank::Rank4,
+                "best_hand(TWO_PAIR): expected 2, 4, result was {:?},{:?}",
+                r1,
+                r2
+            );
+        } else {
+            panic!(
+                "best_hand(ONE_PAIR): expected Hand::OnePair, result was {:?}",
+                bh_two_pair
+            );
+        }
+    }
+
+    #[test]
+    fn test_best_hand_three_of_a_kind() {
+        let h1 = Vec::from(THREE_OF_A_KIND);
+        let bh_tok = best_hand(&h1);
+        if let Hand::ThreeOfAKind(r) = bh_tok {
+            assert!(
+                r == Rank::Rank3,
+                "best_hand(THREE_OF_A_KIND): expected 3, result was {:?}",
+                r
+            );
+        } else {
+            panic!(
+                "best_hand(THREE_OF_A_KIND): expected Hand::ThreeOfAKind, result was {:?}",
+                bh_tok
+            );
+        }
+    }
+
+    #[test]
+    fn test_best_hand_straight() {
+        let h1 = Vec::from(STRAIGHT);
+        let bh_s = best_hand(&h1);
+        if let Hand::Straight(r) = bh_s {
+            assert!(
+                r == Rank::Rank6,
+                "best_hand(STRAIGHT): expected 6, result was {:?}",
+                r
+            );
+        } else {
+            panic!(
+                "best_hand(STRAIGHT): expected Hand::Straight, result was {:?}",
+                bh_s
+            );
+        }
+    }
+
+    #[test]
+    fn test_best_hand_flush() {
+        let h1 = Vec::from(FLUSH);
+        let bh_f = best_hand(&h1);
+        if let Hand::Flush(r1, r2, r3, r4, r5) = bh_f {
+            assert!(
+                r1 == Rank::Rank2
+                    && r2 == Rank::Rank3
+                    && r3 == Rank::Rank8
+                    && r4 == Rank::King
+                    && r5 == Rank::Ace,
+                "best_hand(FLUSH): expected 2,3,8,K,A, result was {:?},{:?},{:?},{:?},{:?}",
+                r1,
+                r2,
+                r3,
+                r4,
+                r5
+            );
+        } else {
+            panic!(
+                "best_hand(FLUSH): expected Hand::Flush, result was {:?}",
+                bh_f
+            );
+        }
+    }
+
+    #[test]
+    fn test_best_full_house() {
+        let h1 = Vec::from(FULL_HOUSE);
+        let bh_f = best_hand(&h1);
+        if let Hand::FullHouse(r1, r2) = bh_f {
+            assert!(
+                r1 == Rank::Rank2 && r2 == Rank::Jack,
+                "best_hand(FULL_HOUSE): expected 2,J, result was {:?},{:?}",
+                r1,
+                r2
+            );
+        } else {
+            panic!(
+                "best_hand(FULL_HOUSE): expected Hand::FullHouse, result was {:?}",
+                bh_f
+            );
+        }
+    }
+
+    #[test]
+    fn test_best_four_of_a_kind() {
+        let h1 = Vec::from(FOUR_OF_A_KIND);
+        let bh_f = best_hand(&h1);
+        if let Hand::FourOfAKind(r) = bh_f {
+            assert!(
+                r == Rank::Rank5,
+                "best_hand(FOUR_OF_A_KIND): expected 5, result was {:?}",
+                r
+            );
+        } else {
+            panic!(
+                "best_hand(FOUR_OF_A_KIND): expected Hand::FourOfAKind, result was {:?}",
+                bh_f
+            );
+        }
+    }
+
+    #[test]
+    fn test_best_straight_flush() {
+        let h1 = Vec::from(STRAIGHT_FLUSH);
+        let bh_sf = best_hand(&h1);
+        if let Hand::StraightFlush(r) = bh_sf {
+            assert!(
+                r == Rank::Rank9,
+                "best_hand(STRAIGHT_FLUSH): expected 9, result was {:?}",
+                r
+            );
+        } else {
+            panic!(
+                "best_hand(STRAIGHT_FLUSH): expected Hand::StraightFlush, result was {:?}",
+                bh_sf
+            );
         }
     }
 }

@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::poker::types::{Card, Rank};
+use crate::poker::card::{Card, Rank};
 
 pub fn longest_sequence(cards: &Vec<Card>) -> Vec<Card> {
     if cards.is_empty() {
@@ -111,5 +111,112 @@ pub fn same_suit(cards: &Vec<Card>) -> bool {
     } else {
         let c1 = cards[0];
         cards.iter().all(|a| a.suit == c1.suit)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::poker::test_data::*;
+    use crate::poker::types::{Card, Hand, Rank, Suit, Winner};
+
+    #[test]
+    fn test_longest_sequence() {
+        let h1 = Vec::from(ONE_PAIR_HC8);
+        let ls_h1 = longest_sequence(&h1);
+        let ls_h1_len = ls_h1.len();
+        assert!(
+            ls_h1.len() == 3,
+            "Longest sequence: expected 3, result was {ls_h1_len}"
+        );
+        let h2 = Vec::from(FOUR_OF_A_KIND);
+        let ls_h2 = longest_sequence(&h2);
+        let ls_h2_len = ls_h2.len();
+        assert!(
+            ls_h2.len() == 1,
+            "Longest sequence: expected 1, result was {ls_h2_len}"
+        );
+    }
+
+    #[test]
+    fn test_group_by_rank() {
+        let h1 = Vec::from(ONE_PAIR_HC8);
+        let gr_h1 = group_by_rank(&h1);
+        assert!(
+            gr_h1.len() == 4,
+            "group_by_rank(ONE_PAIR).len(): expected 4 groups, result was {}",
+            gr_h1.len()
+        );
+        if let Some(c) = gr_h1.first() {
+            assert!(
+                c.len() == 2,
+                "group_by_rank(ONE_PAIR): longest group should be have 2 cards, was {}",
+                c.len()
+            );
+            assert!(
+                c.get(0).unwrap().rank == Rank::Rank2,
+                "group_by_rank(ONE_PAIR): longest group should have Rank2 cards, was {:?}",
+                c.get(0).unwrap().rank
+            );
+        } else {
+            panic!("group_by_rank(ONE_PAIR): Nothing in the longest group")
+        }
+        let h2 = Vec::from(FOUR_OF_A_KIND);
+        let gr_h2 = group_by_rank(&h2);
+        assert!(
+            gr_h2.len() == 2,
+            "group_by_rank(FOUR_OF_A_KIND).len(): expected 2 groups, result was {}",
+            gr_h2.len()
+        );
+        if let Some(c) = gr_h2.first() {
+            assert!(
+                c.len() == 4,
+                "group_by_rank(FOUR_OF_A_KIND): longest group should be have 4 cards, was {}",
+                c.len()
+            );
+            assert!(
+                c.first().unwrap().rank == Rank::Rank5,
+                "group_by_rank(FOUR_OF_A_KIND): longest group should have Rank5 cards, was {:?}",
+                c.first().unwrap().rank
+            );
+        } else {
+            panic!("group_by_rank(FOUR_OF_A_KIND): Nothing in the longest group")
+        }
+    }
+
+    #[test]
+    fn test_same_suit() {
+        let h1: [Card; 3] = [
+            Card {
+                rank: Rank::Rank2,
+                suit: Suit::Clubs,
+            },
+            Card {
+                rank: Rank::Rank3,
+                suit: Suit::Clubs,
+            },
+            Card {
+                rank: Rank::Ace,
+                suit: Suit::Clubs,
+            },
+        ];
+        let good = same_suit(&Vec::from(h1));
+        assert!(good, "same_suit(h1): expected true, was {}", good);
+        let h2: [Card; 3] = [
+            Card {
+                rank: Rank::Rank2,
+                suit: Suit::Clubs,
+            },
+            Card {
+                rank: Rank::Rank3,
+                suit: Suit::Clubs,
+            },
+            Card {
+                rank: Rank::Ace,
+                suit: Suit::Hearts,
+            },
+        ];
+        let bad = same_suit(&Vec::from(h2));
+        assert!(!bad, "same_suit(h2): expected false, was {}", bad);
     }
 }

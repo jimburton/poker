@@ -285,11 +285,18 @@ mod tests {
     fn test_compare_hands_simple() {
         let p1 = "player1";
         let p2 = "player2";
+        let h_hca = Hand::HighCard(Rank::Ace);
+        let h_op = Hand::OnePair(Rank::Rank8);
         let mut w = compare_hands(
-            (p1.to_string(), &Vec::from(HIGH_CARD_ACE)),
-            (p2.to_string(), &Vec::from(ONE_PAIR_HC8)),
+            (p1.to_string(), h_hca, Vec::from(HIGH_CARD_ACE)),
+            (p2.to_string(), h_op, Vec::from(ONE_PAIR_HC8)),
         );
-        if let Winner::Winner { name, hand: _ } = w {
+        if let Winner::Winner {
+            name,
+            hand: _h,
+            cards: _c,
+        } = w
+        {
             assert!(
                 name == p2.to_string(),
                 "compare_hands: expecting player1, was {:?}",
@@ -298,11 +305,18 @@ mod tests {
         } else {
             panic!("compare_hands: was expecting Winner, was {:?}", w);
         }
+        let h_hca = Hand::HighCard(Rank::Ace);
+        let h_hct = Hand::HighCard(Rank::Rank10);
         w = compare_hands(
-            (p1.to_string(), &Vec::from(HIGH_CARD_ACE)),
-            (p2.to_string(), &Vec::from(HIGH_CARD_TEN)),
+            (p1.to_string(), h_hca, Vec::from(HIGH_CARD_ACE)),
+            (p2.to_string(), h_hct, Vec::from(HIGH_CARD_TEN)),
         );
-        if let Winner::Winner { name, hand: _ } = w {
+        if let Winner::Winner {
+            name,
+            hand: _h,
+            cards: _c,
+        } = w
+        {
             assert!(
                 name == p1.to_string(),
                 "compare_hands: expecting player1, was {:?}",
@@ -311,12 +325,17 @@ mod tests {
         } else {
             panic!("compare_hands: was expecting Winner, was {:?}", w);
         }
+        let hf_h = Hand::FullHouse(Rank::Rank2, Rank::Jack);
         w = compare_hands(
-            (p1.to_string(), &Vec::from(FULL_HOUSE)),
-            (p2.to_string(), &Vec::from(FULL_HOUSE)),
+            (p1.to_string(), hf_h, Vec::from(FULL_HOUSE)),
+            (p2.to_string(), hf_h, Vec::from(FULL_HOUSE)),
         );
-        if let Winner::Draw = w {
-            assert!(true);
+        if let Winner::Draw(winners) = w {
+            assert!(
+                winners.len() == 2,
+                "Expected two winners, was {}",
+                winners.len()
+            );
         } else {
             panic!("compare_hands: was expecting Draw, was {:?}", w);
         }

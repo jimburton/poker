@@ -12,7 +12,4 @@ fn main() {
         .unwrap_or_else(|e| eprintln!("{e:?}"));
 
     g.play();
-
-    println!("Cards in deck: {:?}", g.deck.len());
-    println!("Players: {:?}", g.players);
 }

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use num_traits::ToPrimitive;
 
-use crate::poker::hand::best_hand;
+use crate::poker::hand::{best_hand, compare_hands};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 pub enum Rank {
@@ -82,8 +82,12 @@ pub enum Hand {
 
 #[derive(Debug)]
 pub enum Winner {
-    Winner { name: String, hand: Hand },
-    Draw,
+    Winner {
+        name: String,
+        hand: Hand,
+        cards: Vec<Card>,
+    },
+    Draw(Vec<(String, Hand, Vec<Card>)>),
 }
 
 #[derive(Debug)]
@@ -257,18 +261,82 @@ impl Game {
     }
 
     pub fn showdown(&mut self) {
-        let mut hands: Vec<(String, Hand)> = Vec::new();
+        let mut hands: Vec<(String, Hand, Vec<Card>)> = Vec::new();
         self.players.iter_mut().for_each(|(_, p)| {
             let (c1, c2) = p.hole.unwrap();
             let mut ccards = self.community_cards.clone();
             ccards.push(c1);
             ccards.push(c2);
-            let best_hand = best_hand(&ccards);
             let name = p.name.clone();
-            hands.push((name, best_hand));
+            let best_hand = best_hand(&ccards);
+            hands.push((name, best_hand, ccards));
         });
-        hands.sort();
-        println!("Hands: {:?}", hands);
+        let (winner, best_hand, cards): (String, Hand, Vec<Card>) = hands.pop().unwrap();
+        let winner: &Winner = &Winner::Winner {
+            name: winner,
+            hand: best_hand,
+            cards,
+        };
+        let hands_copy = hands.clone();
+        for (name, hand, cards) in hands {
+            match winner {
+                Winner::Winner {
+                    name: wname,
+                    hand: whand,
+                    cards: wcards,
+                } => {
+                    let wname_dref = wname.clone();
+                    let wcards_dref = wcards.clone();
+                    let whand_dref = *whand;
+                    let best =
+                        compare_hands((name, hand, cards), (wname_dref, whand_dref, wcards_dref));
+                    match best {
+                        Winner::Winner {
+                            name: n,
+                            hand: h,
+                            cards: c,
+                        } => {
+                            if n != *wname {
+                                let winner = &Winner::Winner {
+                                    name: n,
+                                    hand: h,
+                                    cards: c,
+                                };
+                            }
+                        }
+                        Winner::Draw(winners) => {
+                            let winner = &Winner::Draw(winners);
+                        }
+                    }
+                }
+                Winner::Draw(winners) => {
+                    let mut ws = winners.clone();
+                    let (w1, h1, cs1): (String, Hand, Vec<Card>) = ws.pop().unwrap();
+                    let w1_dref = w1.clone();
+                    let best = compare_hands((name, hand, cards), (w1, h1, cs1));
+                    match best {
+                        Winner::Winner {
+                            name: n,
+                            hand: h,
+                            cards: c,
+                        } => {
+                            if n != w1_dref {
+                                let winner = &Winner::Winner {
+                                    name: n,
+                                    hand: h,
+                                    cards: c,
+                                };
+                            }
+                        }
+                        Winner::Draw(winners) => {
+                            let winner = &Winner::Draw(winners);
+                        }
+                    }
+                }
+            }
+        }
+        println!("Winner: {:?}", winner);
+        println!("Hands: {:?}", hands_copy);
     }
 }
 

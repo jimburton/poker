@@ -295,15 +295,19 @@ impl Game {
     /// sources suggest it should be the *big blind*, which is the player to the
     /// left of the small blind.
     fn place_bets(&mut self) {
-        if self.players_order.is_empty() {
+        let players_order = self.players_order.clone();
+        let players = self.players.clone();
+        if players_order.is_empty() {
             return;
         }
-        let mut not_all_in: Vec<&String> = self
-            .players
-            .values()
-            .filter(|p| !p.all_in)
-            .map(|p| &p.name)
-            .collect();
+        let mut not_all_in = Vec::new();
+        {
+            for p in players.values() {
+                if !p.all_in {
+                    not_all_in.push(&p.name);
+                }
+            }
+        }
         let mut current: usize = 0;
         let mut target: &String = self.players_order.last().unwrap();
         let mut done: bool = false;
@@ -348,10 +352,11 @@ impl Game {
                             self.pot += n;
                             self.side_pot_active = true;
                             if let Some(index) =
-                                not_all_in.iter().position(|value| *value == &p.name)
+                                not_all_in.iter().position(|value| **value == p.name)
                             {
                                 not_all_in.swap_remove(index);
                             }
+                            let not_all_in = not_all_in.clone().iter().map(|n| **n).collect();
                             let new_side_pot = SidePot {
                                 players: not_all_in,
                                 pot: 0,
@@ -558,65 +563,46 @@ impl Game {
                             dbg!("{} wins {} chips!", name, total_pot);
                         } else {
                             // Deal with side pots.
-                            // Each side pot goes to the player who is still in the game
-                            // and has the best hand.
+                            // FIX: Clone side_pots to iterate over owned data, releasing the immutable borrow on `self`.
+                            let side_pots_to_process = self.side_pots.clone();
                             let mut winner_side_pot: usize = 0;
-                            let side_pots = self.side_pots.clone();
-                            for mut sp in side_pots {
+
+                            // FIX: Switched from for_each to a standard 'for' loop for safer mutable access.
+                            for mut sp in side_pots_to_process {
                                 // if the winner is in this side pot they get the winnings.
                                 if sp.players.contains(name) {
                                     winner_side_pot += sp.pot;
                                 } else {
                                     // determine winners and allocate winnings.
-                                    // let w = self.determine_side_pot_winner(&sp);
-                                    // let hands = self.names_to_hands(sp.players.clone());
-                                    // Calculate the best hand for each non-folded player.
-                                    let hands: Vec<(String, Hand, Vec<Card>)> = self
-                                        .players
-                                        .iter() // Use iter() since we don't need to mutate Player state here
-                                        .filter_map(|(_, p)| {
-                                            // Only consider players who haven't folded
-                                            if p.folded || !sp.players.contains(&p.name) {
-                                                return None;
-                                            }
-
-                                            let (c1, c2) = p
-                    .hole
-                    .expect("Hole cards should be dealt before calling names_to_hands");
-
-                                            // Collect all 7 cards (2 hole + 5 community)
-                                            let mut all_cards = self.community_cards.clone();
-                                            all_cards.push(c1);
-                                            all_cards.push(c2);
-
-                                            let best_hand = best_hand(&all_cards);
-                                            Some((p.name.clone(), best_hand, all_cards))
-                                        })
-                                        .collect();
-                                    let w = Game::determine_winner(hands);
+                                    let w = self.determine_side_pot_winner(&sp);
                                     // players in side pot who did not fold
                                     let players = sp.players.clone();
                                     let active = self.not_folded(&&players);
                                     if !active.is_empty() {
                                         // there are some left, they get the side pot
                                         sp.players = active;
-                                        // This call requires &mut self, which is now safe
-                                        // because we are not iterating over a reference to self.side_pots
-                                        //self.allocate_side_pot_winnings(&w, &sp);
+                                        // FIX: Replace self.allocate_side_pot_winnings with inline allocation logic
+                                        // to separate the immutable borrow (from w) from the mutable borrow (self.players.get_mut).
                                         match w {
-                                            Winner::Winner { name, .. } => {
-                                                self.players.get_mut(&name).unwrap().bank_roll +=
-                                                    sp.pot;
+                                            Winner::Winner {
+                                                name: winner_name, ..
+                                            } => {
+                                                self.players
+                                                    .get_mut(&winner_name)
+                                                    .unwrap()
+                                                    .bank_roll += sp.pot;
                                             }
-                                            Winner::Draw(players) => {
-                                                players.iter().for_each(|(name, _hand, _cards)| {
-                                                    let win = sp.pot / sp.players.len();
-                                                    dbg!("{} wins {} from side pot", name, win);
-                                                    self.players
-                                                        .get_mut(name)
-                                                        .unwrap()
-                                                        .bank_roll += win;
-                                                });
+                                            Winner::Draw(draw_players) => {
+                                                let win = sp.pot / draw_players.len();
+                                                draw_players.iter().for_each(
+                                                    |(name, _hand, _cards)| {
+                                                        dbg!("{} wins {} from side pot", name, win);
+                                                        self.players
+                                                            .get_mut(name)
+                                                            .unwrap()
+                                                            .bank_roll += win;
+                                                    },
+                                                );
                                             }
                                         }
                                     } else {
@@ -661,18 +647,18 @@ impl Game {
                     let mut winners_pot_share: usize = main_pot_share;
 
                     // Deal with side pots.
-                    // Winners get equal shares of those side pots they contributed to.
-                    // Non-folded players win part or all of a side pot if they
-                    // have the best hand among the players who contributed to that pot.
-                    // If there aren't any non-folded players left in a side pot the pot
-                    // is divided among all winners.
+                    // We clone the side pots here to safely iterate over them while
+                    // potentially modifying 'self' (e.g., player bank_roll) inside the loop.
+                    let side_pots_to_process = self.side_pots.clone();
 
                     let mut unclaimed_side_pots: usize = 0;
-                    let side_pots = self.side_pots.clone();
-                    for mut sp in side_pots {
+
+                    for mut sp in side_pots_to_process {
+                        // Iterate over owned data
                         // determine winners and allocate winnings.
                         let w = self.determine_side_pot_winner(&sp);
                         // players in side pot who did not fold
+                        // Using sp.players directly now that sp is mut and owned
                         let active = self.not_folded(&sp.players);
                         if !active.is_empty() {
                             // there are some left, they get the side pot
@@ -682,8 +668,9 @@ impl Game {
                                     self.players.get_mut(&name).unwrap().bank_roll += sp.pot;
                                 }
                                 Winner::Draw(players) => {
+                                    // Fix: Use 'players.len()' (number of winners) for division
+                                    let win = sp.pot / players.len();
                                     players.iter().for_each(|(name, _hand, _cards)| {
-                                        let win = sp.pot / sp.players.len();
                                         dbg!("{} wins {} from side pot", name, win);
                                         self.players.get_mut(name).unwrap().bank_roll += win;
                                     });

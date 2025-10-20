@@ -1,3 +1,4 @@
+/// Datatypes and functions for the game and individual rounds.
 use crate::poker::card::{new_deck, Card, Hand};
 use crate::poker::compare::{best_hand, compare_hands};
 use crate::poker::player::{Player, PlayerHand};
@@ -7,6 +8,7 @@ use rand::rng;
 use rand::seq::SliceRandom;
 use std::collections::HashMap;
 
+/// Enum for representing the winner(s) of a round.
 #[derive(Debug, Clone)]
 pub enum Winner {
     Winner {
@@ -17,6 +19,7 @@ pub enum Winner {
     Draw(Vec<PlayerHand>),
 }
 
+/// Enum for representing the stage of a round.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Stage {
     Blinds,
@@ -28,6 +31,7 @@ pub enum Stage {
     ShowDown,
 }
 
+/// Enum fro representing a bet.
 #[derive(Debug, Clone)]
 pub enum Bet {
     Fold,
@@ -37,10 +41,14 @@ pub enum Bet {
     AllIn(usize),
 }
 
-pub fn new_game(buy_in: usize, num_players: u8) -> Game {
-    Game::build(buy_in, num_players)
+/// Struct for a side pot.
+#[derive(Debug, Clone)]
+struct SidePot {
+    players: Vec<String>,
+    pot: usize,
 }
 
+/// Struct for the game.
 #[derive(Debug)]
 pub struct Game {
     players: HashMap<String, Player>,
@@ -53,20 +61,16 @@ pub struct Game {
     side_pots: Vec<SidePot>,
     deck: Vec<Card>,
     community_cards: Vec<Card>,
-    num_players: u8,
+    max_players: u8,
     side_pot_active: bool,
     winner: Option<Winner>,
     stage: Stage,
+    num_rounds: usize,
 }
 
-#[derive(Debug, Clone)]
-struct SidePot {
-    players: Vec<String>,
-    pot: usize,
-}
-
+/// Implementation for the Game struct.
 impl Game {
-    pub fn build(big_blind: usize, num_players: u8) -> Self {
+    pub fn build(big_blind: usize, max_players: u8) -> Self {
         let mut game = Game {
             players: HashMap::new(),
             players_order: Vec::new(),
@@ -78,10 +82,11 @@ impl Game {
             side_pots: Vec::new(),
             deck: Vec::new(),
             community_cards: Vec::new(),
-            num_players,
+            max_players,
             side_pot_active: false,
             winner: None,
             stage: Stage::Blinds,
+            num_rounds: 0,
         };
         let mut deck = new_deck();
         let mut rng = rng();
@@ -91,14 +96,16 @@ impl Game {
         game
     }
 
+    /// Predicate function for the game having the full amount of players.
     fn full(&self) -> bool {
         let num_players = self
-            .num_players
+            .max_players
             .to_usize()
             .expect("Could not convert num_players to usize");
         self.players.len() == num_players
     }
 
+    /// Allows a player to join the game. The player's bank roll is set to the buy in amount.
     pub fn join(&mut self, name: &str) -> Result<(), &'static str> {
         if self.full() {
             return Err("Cannot add more players.");
@@ -110,14 +117,30 @@ impl Game {
     }
 
     /// Play a game.
-    /// TODO only plays one round so far
     pub fn play(&mut self) {
-        self.play_round();
-        self.reset_after_round();
-        // TODO play another, until WHAT?
+        while self.players.len() > 1 {
+            self.play_round();
+            self.reset_after_round();
+            self.num_rounds += 1;
+        }
+        self.announce_winner();
     }
 
-    /// Set the name of the dealer and re order the players_order list
+    /// Announce the winner at the end of the game.
+    fn announce_winner(&self) {
+        if let Winner::Winner { name, .. } = self.winner.clone().unwrap() {
+            let takings = self.players.get(&name).unwrap().bank_roll;
+            let num_rounds = self.num_rounds;
+            println!(
+                "Congratulations {}, you played {} rounds and won with a bank roll of {}.",
+                name, num_rounds, takings
+            )
+        } else {
+            panic!("Announcing winner but there isn't one...")
+        }
+    }
+
+    /// Set the name of the dealer and reorder the players_order list
     /// so that the player to the left of the dealer is at the front.
     fn order_players(&mut self) {
         if self.stage == Stage::Blinds {
@@ -242,7 +265,7 @@ impl Game {
         self.deck = deck;
     }
 
-    /// Players are given the opportunity to bet. If a player raises the bet, everyone
+    /// Players are given the opportunity to bet. If a player raises the bet, every
     /// other player must call or raise again.
     fn place_bets(&mut self) {
         // names of players who have not folded
@@ -252,14 +275,12 @@ impl Game {
             .filter(|p| !p.folded)
             .map(|p| (p.name.clone(), p.all_in))
             .collect();
-        println!("Not folded: {:?}", not_folded.clone());
         // names of players who have not folded and are not all in
         let mut not_all_in: Vec<String> = not_folded
             .iter()
             .filter(|(_name, all_in)| !all_in)
             .map(|(name, _all_in)| name.clone())
             .collect();
-        println!("Not all in: {:?}", not_all_in.clone());
         // The players who will be betting, in the right order
         let mut players: Vec<String> = Vec::new();
         for name in self.players_order.clone() {
@@ -267,7 +288,6 @@ impl Game {
                 players.push(name);
             }
         }
-        println!("Placing bets: {:?}", players.clone());
         if players.is_empty() {
             return;
         }
@@ -280,7 +300,6 @@ impl Game {
         let mut call: usize = 0;
         let min = self.big_blind;
         let mut cycle: u8 = 0; // the number of times players have been given a chance to bet in this round
-        println!("About to start round of betting.");
 
         while !done {
             // Use the cloned players_order for iteration indexing
@@ -299,8 +318,6 @@ impl Game {
                 }
                 let ccards = self.community_cards.clone();
                 let bet = p.place_bet(call, min, ccards, self.stage, cycle);
-
-                println!("Received bet: {:?}", bet.clone());
 
                 match bet {
                     Bet::Fold => {
@@ -339,8 +356,8 @@ impl Game {
                             p.folded = true;
                         }
                     }
-                    Bet::AllIn(n) => {
-                        self.pot += n;
+                    Bet::AllIn(bet) => {
+                        self.pot += bet;
                         self.side_pot_active = true;
 
                         // not_all_in now contains owned Strings, so we can search by value.
@@ -363,7 +380,7 @@ impl Game {
     }
 
     /// Determines the winner(s) of the round.
-    pub fn showdown(&mut self) {
+    fn showdown(&mut self) {
         // Calculate the best hand for each non-folded player.
         let mut hands: Vec<PlayerHand> =
             self.names_to_hands(self.players.keys().cloned().collect());
@@ -389,7 +406,7 @@ impl Game {
         }
 
         let winner = Game::determine_winner(hands);
-        dbg!("Final Showdown Result: {:?}", &winner);
+        dbg!(&winner);
         self.winner = Some(winner);
     }
 
@@ -620,7 +637,7 @@ impl Game {
                         match winnings.get_mut(&winner_name) {
                             Some(value) => *value += main_pot, // If the key exists, update the value
                             None => {
-                                println!("Key '{}' does not exist in the HashMap.", winner_name)
+                                panic!("Key '{}' does not exist in the HashMap.", winner_name)
                             } // If the key does not exist, print a message
                         }
                         if not_all_in.iter().any(|ph| ph.name == winner_name) {
@@ -629,7 +646,7 @@ impl Game {
                             match winnings.get_mut(&winner_name) {
                                 Some(value) => *value += side_pots, // If the key exists, update the value
                                 None => {
-                                    println!("Key '{}' does not exist in the HashMap.", winner_name)
+                                    panic!("Key '{}' does not exist in the HashMap.", winner_name)
                                 } // If the key does not exist, print a message
                             }
                         } else {
@@ -650,10 +667,9 @@ impl Game {
                                     // everyone in this side pot has folded so the winnings go to the winner of the main pot
                                     match winnings.get_mut(&winner_name) {
                                         Some(value) => *value += sp.pot, // If the key exists, update the value
-                                        None => println!(
-                                            "Key '{}' does not exist in the HashMap.",
-                                            name
-                                        ),
+                                        None => {
+                                            panic!("Key '{}' does not exist in the HashMap.", name)
+                                        }
                                     }
                                 } else {
                                     // players who participated in this side pot are still in the round
@@ -663,7 +679,7 @@ impl Game {
                                         Winner::Winner { name, .. } => {
                                             match winnings.get_mut(&name) {
                                                 Some(value) => *value += sp.pot, // If the key exists, update the value
-                                                None => println!(
+                                                None => panic!(
                                                     "Key '{}' does not exist in the HashMap.",
                                                     name
                                                 ),
@@ -680,7 +696,7 @@ impl Game {
                                             {
                                                 match winnings.get_mut(&name) {
                                                     Some(value) => *value += pot_share, // If the key exists, update the value
-                                                    None => println!(
+                                                    None => panic!(
                                                         "Key '{}' does not exist in the HashMap.",
                                                         name
                                                     ), // If the key does not exist, print a message
@@ -707,7 +723,7 @@ impl Game {
                     {
                         match winnings.get_mut(&name) {
                             Some(value) => *value += main_pot_share, // If the key exists, update the value
-                            None => println!("Key '{}' does not exist in the HashMap.", name), // If the key does not exist, print a message
+                            None => panic!("Key '{}' does not exist in the HashMap.", name), // If the key does not exist, print a message
                         }
                     }
                     //distribute side pots
@@ -733,7 +749,7 @@ impl Game {
                                 match winnings.get_mut(&name) {
                                     Some(value) => *value += sp.pot, // If the key exists, update the value
                                     None => {
-                                        println!("Key '{}' does not exist in the HashMap.", name)
+                                        panic!("Key '{}' does not exist in the HashMap.", name)
                                     } // If the key does not exist, print a message
                                 }
                             }
@@ -746,10 +762,7 @@ impl Game {
                                     match winnings.get_mut(&name) {
                                         Some(value) => *value += sp.pot, // If the key exists, update the value
                                         None => {
-                                            println!(
-                                                "Key '{}' does not exist in the HashMap.",
-                                                name
-                                            )
+                                            panic!("Key '{}' does not exist in the HashMap.", name)
                                         } // If the key does not exist, print a message
                                     }
                                 }
@@ -764,7 +777,7 @@ impl Game {
                                     {
                                         match winnings.get_mut(&name) {
                                             Some(value) => *value += pot_share, // If the key exists, update the value
-                                            None => println!(
+                                            None => panic!(
                                                 "Key '{}' does not exist in the HashMap.",
                                                 name
                                             ), // If the key does not exist, print a message
@@ -781,7 +794,7 @@ impl Game {
                 if pot_share > 0 {
                     match self.players.get_mut(&name) {
                         Some(value) => value.bank_roll += pot_share, // If the key exists, update the value
-                        None => println!("Key '{}' does not exist in the HashMap.", name), // If the key does not exist, print a message
+                        None => panic!("Key '{}' does not exist in the HashMap.", name), // If the key does not exist, print a message
                     }
                 }
             }
@@ -795,7 +808,6 @@ impl Game {
     fn reset_after_round(&mut self) {
         self.pot = 0;
         self.side_pots = Vec::new();
-        dbg!("Pots reset.");
 
         let dealer_name_ref: Option<&String> = self.dealer.as_ref();
 
@@ -825,8 +837,12 @@ impl Game {
             }
             self.players.remove(name);
         }
-        dbg!("Players that ran out of money removed.");
     }
+}
+
+/// Create a new game.
+pub fn new_game(buy_in: usize, num_players: u8) -> Game {
+    Game::build(buy_in, num_players)
 }
 
 #[cfg(test)]

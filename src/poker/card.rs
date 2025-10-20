@@ -1,3 +1,6 @@
+/// Types and functions relating to cards.
+
+/// The rank of a card.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 pub enum Rank {
     Rank2 = 2,
@@ -14,7 +17,7 @@ pub enum Rank {
     King = 13,
     Ace = 14,
 }
-/// Helper methods
+/// Rank helper methods
 impl Rank {
     //  get the numerical value of the rank for continuity checks.
     pub fn value(&self) -> u8 {
@@ -40,6 +43,7 @@ impl Rank {
     }
 }
 
+/// The suit of a card.
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd, Clone, Copy, Hash)]
 pub enum Suit {
     Clubs,
@@ -54,12 +58,15 @@ impl Suit {
     }
 }
 
+/// A card has a rank and a suit.
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd, Clone, Copy)]
 pub struct Card {
     pub rank: Rank,
     pub suit: Suit,
 }
 
+/// A poker hand, ranked from lowest to highest. Assuming there are no wild cards allowed,
+/// and so no five of a kind.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum Hand {
     HighCard(Rank),
@@ -73,6 +80,7 @@ pub enum Hand {
     StraightFlush(Rank), // highest rank of the flush
 }
 
+/// Get a new unshuffled deck of 52 cards.
 pub fn new_deck() -> Vec<Card> {
     Rank::values()
         .iter()

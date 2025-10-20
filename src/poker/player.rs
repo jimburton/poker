@@ -1,7 +1,18 @@
+/// Datatypes and functions for players in the game.
 use crate::poker::betting_strategy;
 use crate::poker::card::{Card, Hand};
 use crate::poker::game::{Bet, Stage};
 
+/// A utility struct with information about a player's hand, with the
+/// cards being made up of their hole cards and the available community cards.
+#[derive(Debug, Clone)]
+pub struct PlayerHand {
+    pub name: String,
+    pub best_hand: Hand,
+    pub cards: Vec<Card>,
+}
+
+/// The struct that represents a player.
 #[derive(Debug, Clone)]
 pub struct Player {
     pub name: String,
@@ -13,15 +24,9 @@ pub struct Player {
     pub betting_strategy: fn(usize, usize, usize, Vec<Card>, Stage, u8) -> Bet,
 }
 
-#[derive(Debug, Clone)]
-pub struct PlayerHand {
-    pub name: String,
-    pub best_hand: Hand,
-    pub cards: Vec<Card>,
-}
-
+/// Implementation for the Player struct.
 impl Player {
-    /// Construct a new Player struct.
+    /// Construct a new Player.
     pub fn build(name: &str, bank_roll: usize) -> Self {
         Player {
             name: name.to_string(),

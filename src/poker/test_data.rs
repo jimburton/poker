@@ -1,3 +1,4 @@
+/// Test data.
 use crate::poker::card::{Card, Rank, Suit};
 
 #[allow(dead_code)]

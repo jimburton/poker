@@ -1,7 +1,9 @@
+/// Functions for generating and organising sequences of cards.
 use std::collections::{HashMap, HashSet};
 
 use crate::poker::card::{Card, Rank, Suit};
 
+/// Find the longest continuous sequence in a collection of cards.
 pub fn longest_sequence(cards: &Vec<Card>) -> Vec<Card> {
     if cards.is_empty() {
         return Vec::new();
@@ -72,7 +74,7 @@ pub fn longest_sequence(cards: &Vec<Card>) -> Vec<Card> {
     for card in cards.iter() {
         let rank_val = card.rank.value();
 
-        // 5a. Check if the rank is within the longest sequence range.
+        // Check if the rank is within the longest sequence range.
         if rank_val >= min_rank_value && rank_val < max_rank_value {
             // 5b. Check if we have already included a card of this rank using HashSet::insert.
             if included_ranks.insert(card.rank) {
@@ -88,6 +90,7 @@ pub fn longest_sequence(cards: &Vec<Card>) -> Vec<Card> {
     final_sequence_cards
 }
 
+/// Group a collection of cards by their rank.
 pub fn group_by_rank(cards: &Vec<Card>) -> Vec<Vec<Card>> {
     let mut grouped_by_rank: HashMap<Rank, Vec<Card>> = HashMap::new();
 
@@ -104,6 +107,7 @@ pub fn group_by_rank(cards: &Vec<Card>) -> Vec<Vec<Card>> {
     cs
 }
 
+/// Group a collection of cards by their suit.
 pub fn group_by_suit(cards: &Vec<Card>) -> Vec<Vec<Card>> {
     let mut grouped_by_suit: HashMap<Suit, Vec<Card>> = HashMap::new();
 
@@ -124,6 +128,7 @@ pub fn group_by_suit(cards: &Vec<Card>) -> Vec<Vec<Card>> {
     cs
 }
 
+/// Predicate for a collection of cards being of the same suit.
 pub fn same_suit(cards: &Vec<Card>) -> bool {
     if cards.len() == 0 {
         true
@@ -133,6 +138,7 @@ pub fn same_suit(cards: &Vec<Card>) -> bool {
     }
 }
 
+/// Tests for the sequence module.
 #[cfg(test)]
 mod tests {
     use super::*;

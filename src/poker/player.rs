@@ -1,5 +1,6 @@
+use crate::poker::betting_strategy;
 use crate::poker::card::{Card, Hand};
-use crate::poker::game::Bet;
+use crate::poker::game::{Bet, Stage};
 
 #[derive(Debug, Clone)]
 pub struct Player {
@@ -9,7 +10,7 @@ pub struct Player {
     pub bank_roll: usize,
     pub all_in: bool,
     pub folded: bool,
-    pub betting_strategy: fn(usize, usize, usize, Vec<Card>) -> Bet,
+    pub betting_strategy: fn(usize, usize, usize, Vec<Card>, Stage, u8) -> Bet,
 }
 
 #[derive(Debug, Clone)]
@@ -29,64 +30,29 @@ impl Player {
             bet: 0,
             all_in: false,
             folded: false,
-            betting_strategy: Player::default_betting_strategy,
+            betting_strategy: betting_strategy::default_betting_strategy,
         }
     }
 
-    /// Default betting strategy, which does the following:
-    ///
-    /// + fold if necessary,
-    /// + goes all in if neccessary,
-    /// + check if possible,
-    /// + call the bet.
-    fn default_betting_strategy(
-        call: usize,
-        _min: usize,
-        bank_roll: usize,
-        _cards: Vec<Card>,
-    ) -> Bet {
-        if bank_roll == 0 {
-            Bet::Fold
-        } else if bank_roll <= call {
-            Bet::AllIn(bank_roll)
-        } else if call == 0 {
-            Bet::Check
-        } else {
-            Bet::Call(call)
-        }
-    }
-
-    /// Default betting strategy, which does the following:
-    ///
-    /// + fold if necessary,
-    /// + goes all in if neccessary,
-    /// + bet the minimum amount if currently zero,
-    /// + call the bet.
-    fn modest_betting_strategy(
-        call: usize,
-        min: usize,
-        bank_roll: usize,
-        _cards: Vec<Card>,
-    ) -> Bet {
-        if bank_roll == 0 {
-            Bet::Fold
-        } else if bank_roll <= call {
-            Bet::AllIn(bank_roll)
-        } else if call == 0 {
-            Bet::Raise(min)
-        } else {
-            Bet::Call(call)
-        }
-    }
-
-    pub fn set_betting_strategy(&mut self, strategy: fn(usize, usize, usize, Vec<Card>) -> Bet) {
+    /// Adopt a new strategy.
+    pub fn set_betting_strategy(
+        &mut self,
+        strategy: fn(usize, usize, usize, Vec<Card>, Stage, u8) -> Bet,
+    ) {
         self.betting_strategy = strategy;
     }
 
     /// Place a bet.
-    pub fn place_bet(&mut self, call: usize, min: usize, community_cards: Vec<Card>) -> Bet {
+    pub fn place_bet(
+        &mut self,
+        call: usize,
+        min: usize,
+        community_cards: Vec<Card>,
+        stage: Stage,
+        cycle: u8,
+    ) -> Bet {
         let strategy = self.betting_strategy;
-        match strategy(call, min, self.bank_roll, community_cards) {
+        match strategy(call, min, self.bank_roll, community_cards, stage, cycle) {
             Bet::Fold => Bet::Fold,
             Bet::Check => Bet::Check,
             Bet::Call(n) => {
@@ -118,9 +84,14 @@ impl Player {
     ///
     /// Buy in to a new round.
     pub fn ante_up(&mut self, ante: usize) -> Result<usize, &'static str> {
-        if self.bank_roll >= ante {
+        if self.bank_roll > ante {
             self.bank_roll -= ante;
             Ok(ante)
+        } else if self.bank_roll > 0 {
+            let all_in_amount = self.bank_roll;
+            self.bank_roll = 0;
+            self.all_in = true;
+            Ok(all_in_amount)
         } else {
             self.folded = true;
             Err("Can't join round.")
@@ -131,7 +102,6 @@ impl Player {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::poker::card::{Card, Hand, Rank, Suit};
 
     #[test]
     fn test_build() {

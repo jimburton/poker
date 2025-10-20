@@ -1,3 +1,4 @@
+pub mod betting_strategy;
 pub mod card;
 pub mod compare;
 pub mod game;

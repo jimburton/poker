@@ -33,13 +33,10 @@ pub fn best_hand(cards: &Vec<Card>) -> Hand {
     }
 }
 
-pub fn compare_hands(
-    hand_a: (String, Hand, Vec<Card>),
-    hand_b: (String, Hand, Vec<Card>),
-) -> Winner {
+pub fn compare_hands(hand_a: PlayerHand, hand_b: PlayerHand) -> Winner {
     // Placeholder logic for comparison: returns winner based on hand variant order
-    let (name_a, h_a, c_a) = hand_a;
-    let (name_b, h_b, c_b) = hand_b;
+    let (name_a, h_a, c_a) = (hand_a.name, hand_a.best_hand, hand_a.cards);
+    let (name_b, h_b, c_b) = (hand_b.name, hand_b.best_hand, hand_b.cards);
 
     if h_a > h_b {
         Winner::Winner {
@@ -244,7 +241,18 @@ mod tests {
         let c2 = Vec::from(ONE_PAIR_8_2);
         let p2 = "player2";
         let h2 = Hand::OnePair(Rank::Rank8);
-        let w = compare_hands((p1.to_string(), h1, c1), (p2.to_string(), h2, c2));
+        let w = compare_hands(
+            PlayerHand {
+                name: p1.to_string(),
+                best_hand: h1,
+                cards: c1,
+            },
+            PlayerHand {
+                name: p2.to_string(),
+                best_hand: h2,
+                cards: c2,
+            },
+        );
         match w {
             Winner::Draw(winners) => {
                 assert!(

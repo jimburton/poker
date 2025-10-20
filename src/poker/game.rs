@@ -158,6 +158,7 @@ impl Game {
 
     /// Each player buys in once after joining, or is removed from the game.
     fn player_buy_in(&mut self, name: &str) {
+        // TODO uniquify name
         let mut not_joining = false;
         if let Some(p) = self.players.get_mut(name) {
             if let Ok(n) = p.ante_up(self.buy_in) {
@@ -357,7 +358,7 @@ impl Game {
                                 } else {
                                     self.pot += raise;
                                 }
-                                // Assuming 'raise' is the new total amount to match/beat
+                                // raise is the new total amount to match/beat
                                 call = raise;
                                 // 3. FIX: Clone the player's name into the owned 'target' String.
                                 target = p.name.clone();
@@ -386,7 +387,7 @@ impl Game {
                         }
                     }
                 }
-                // 4. FIX: Corrected modulo operation to ensure 'current' wraps correctly.
+                // ensure 'current' wraps correctly.
                 current = (current + 1) % players_order.len();
             }
         }
@@ -450,7 +451,7 @@ impl Game {
         if hands.len() < 2 {
             if let Some((name, hand, cards)) = hands.pop() {
                 dbg!("determine_winner: last player standing: {}", name.clone());
-                Winner::Winner { name, hand, cards };
+                return Winner::Winner { name, hand, cards };
             } else {
                 dbg!("No players remaining to determine winner.");
             }
@@ -482,7 +483,7 @@ impl Game {
                     )
                 }
                 Winner::Draw(mut draw_winners) => {
-                    // If it's a draw, compare the challenger against the best hand in the draw group.
+                    // It's a draw, compare the challenger against the best hand in the draw group.
                     // Assume the first element of a Draw is the benchmark.
                     let (w_name_benchmark, w_hand_benchmark, w_cards_benchmark) =
                         draw_winners.pop().unwrap();
@@ -573,7 +574,160 @@ impl Game {
     ///
     /// TODO keep track of chips being lost due to truncating division.
     fn distribute_pots(&mut self) {
-        dbg!("TODO");
+        let winner = self.winner.clone();
+        let main_pot = self.pot.clone();
+        let side_pots = self.side_pots.clone();
+        let ccards = self.community_cards.clone();
+        // details of not folded players: names, bests hands, full sets of cards and whether they are all in
+        let mut not_folded: Vec<(String, Hand, Vec<Card>, bool)> = self
+            .players
+            .values()
+            .map(|p| {
+                let (c1, c2) = p.hole.unwrap().clone();
+                let mut cards = ccards.clone();
+                cards.extend(vec![c1, c2]);
+                (p.name.clone(), best_hand(&cards), cards, p.all_in)
+            })
+            .collect();
+        // not folded and not all in
+        let mut not_all_in: Vec<(String, Hand, Vec<Card>)> = not_folded
+            .iter()
+            .filter(|(_name, _hand, _cards, all_in)| !all_in)
+            .map(|(name, hand, cards, _all_in)| (name.clone(), hand.clone(), cards.clone()))
+            .collect();
+        let not_folded_clone = not_folded.clone();
+        let mut winnings: HashMap<String, usize> = HashMap::new();
+        for (name, _hand, _cards, _all_in) in not_folded {
+            winnings.insert(name, 0);
+        }
+        if let Some(w) = winner {
+            match w {
+                Winner::Winner { name, .. } => {
+                    let name = name.clone();
+                    //dbg!("Single winner: {}.", name);
+                    if not_folded_clone
+                        .iter()
+                        .any(|(n, _hand, _cards, _all_in)| n == &name)
+                    {
+                        // winner is not folded
+                        // distribute the main pot
+                        match winnings.get_mut(&name) {
+                            Some(value) => *value += main_pot, // If the key exists, update the value
+                            None => println!("Key '{}' does not exist in the HashMap.", name), // If the key does not exist, print a message
+                        }
+                        if not_all_in.iter().any(|(n, _hand, _cards)| n == &name) {
+                            // winner is not all in
+                            // they win the side pots too
+                            let side_pots: usize = self.side_pots.iter().map(|sp| sp.pot).sum();
+                            match winnings.get_mut(&name) {
+                                Some(value) => *value += side_pots, // If the key exists, update the value
+                                None => println!("Key '{}' does not exist in the HashMap.", name), // If the key does not exist, print a message
+                            }
+                        } else {
+                            // winner is all in
+                            // distribute side pots
+                            for sp in side_pots {
+                                // possible winners
+                                let candidates: Vec<(String, Hand, Vec<Card>)> = not_folded_clone
+                                    .iter()
+                                    .filter(|(name, _hand, _cards, _all_in)| {
+                                        sp.players.contains(name)
+                                    })
+                                    .map(|(name, hand, cards, _all_in)| {
+                                        (name.clone(), hand.clone(), cards.clone())
+                                    })
+                                    .collect();
+                                let w = Game::determine_winner(candidates);
+                                match w {
+                                    // single winner for this side pot
+                                    Winner::Winner { name, .. } => {
+                                        match winnings.get_mut(&name) {
+                                            Some(value) => *value += sp.pot, // If the key exists, update the value
+                                            None => println!(
+                                                "Key '{}' does not exist in the HashMap.",
+                                                name
+                                            ), // If the key does not exist, print a message
+                                        }
+                                    }
+                                    // multiple winners for this side pot
+                                    Winner::Draw(winners) => {
+                                        let pot_share = sp.pot / winners.len();
+                                        for (name, _hand, _cards) in winners {
+                                            match winnings.get_mut(&name) {
+                                                Some(value) => *value += pot_share, // If the key exists, update the value
+                                                None => println!(
+                                                    "Key '{}' does not exist in the HashMap.",
+                                                    name
+                                                ), // If the key does not exist, print a message
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        dbg!("Winner not in not_folded.");
+                    }
+                }
+                Winner::Draw(winners) => {
+                    dbg!("Multiple winners.");
+                    // distribute main pot
+                    let main_pot_share = main_pot / winners.len();
+                    for (name, _hand, _cards) in winners.clone() {
+                        match winnings.get_mut(&name) {
+                            Some(value) => *value += main_pot_share, // If the key exists, update the value
+                            None => println!("Key '{}' does not exist in the HashMap.", name), // If the key does not exist, print a message
+                        }
+                    }
+                    //distribute side pots
+                    for sp in side_pots {
+                        // possible winners
+                        let candidates: Vec<(String, Hand, Vec<Card>)> = not_folded_clone
+                            .iter()
+                            .filter(|(name, _hand, _cards, _all_in)| sp.players.contains(name))
+                            .map(|(name, hand, cards, _all_in)| {
+                                (name.clone(), hand.clone(), cards.clone())
+                            })
+                            .collect();
+                        let w = Game::determine_winner(candidates);
+                        match w {
+                            // single winner for this side pot
+                            Winner::Winner { name, .. } => {
+                                match winnings.get_mut(&name) {
+                                    Some(value) => *value += sp.pot, // If the key exists, update the value
+                                    None => {
+                                        println!("Key '{}' does not exist in the HashMap.", name)
+                                    } // If the key does not exist, print a message
+                                }
+                            }
+                            // multiple winners for this side pot
+                            Winner::Draw(winners) => {
+                                let pot_share = sp.pot / winners.len();
+                                for (name, _hand, _cards) in winners {
+                                    match winnings.get_mut(&name) {
+                                        Some(value) => *value += pot_share, // If the key exists, update the value
+                                        None => println!(
+                                            "Key '{}' does not exist in the HashMap.",
+                                            name
+                                        ), // If the key does not exist, print a message
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // distribute winnings
+            for (name, pot_share) in winnings.clone() {
+                match winnings.get_mut(&name) {
+                    Some(value) => *value += pot_share, // If the key exists, update the value
+                    None => println!("Key '{}' does not exist in the HashMap.", name), // If the key does not exist, print a message
+                }
+            }
+        } else {
+            dbg!("Distribute pots called with no winner set.");
+        }
+
         /*
             if let Some(winner) = &self.winner {
                 match winner {

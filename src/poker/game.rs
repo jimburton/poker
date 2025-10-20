@@ -1,4 +1,4 @@
-/// Datatypes and functions for the game and individual rounds.
+use crate::poker::betting_strategy::BettingStrategy;
 use crate::poker::card::{new_deck, Card, Hand};
 use crate::poker::compare::{best_hand, compare_hands};
 use crate::poker::player::{Player, PlayerHand};
@@ -7,6 +7,8 @@ use num_traits::ToPrimitive;
 use rand::rng;
 use rand::seq::SliceRandom;
 use std::collections::HashMap;
+
+/// Datatypes and functions for the game and individual rounds.
 
 /// Enum for representing the winner(s) of a round.
 #[derive(Debug, Clone)]
@@ -17,6 +19,14 @@ pub enum Winner {
         cards: Vec<Card>,
     },
     Draw(Vec<PlayerHand>),
+}
+
+/// Struct for the winner of the game
+#[derive(Debug)]
+pub struct WinnerInfo {
+    pub name: String,
+    pub num_rounds: usize,
+    pub winnings: usize,
 }
 
 /// Enum for representing the stage of a round.
@@ -62,7 +72,6 @@ pub struct Game {
     deck: Vec<Card>,
     community_cards: Vec<Card>,
     max_players: u8,
-    side_pot_active: bool,
     winner: Option<Winner>,
     stage: Stage,
     num_rounds: usize,
@@ -83,7 +92,6 @@ impl Game {
             deck: Vec::new(),
             community_cards: Vec::new(),
             max_players,
-            side_pot_active: false,
             winner: None,
             stage: Stage::Blinds,
             num_rounds: 0,
@@ -116,28 +124,59 @@ impl Game {
         Ok(())
     }
 
+    /// Allows a player to join the game with a given betting strategy.
+    /// The player's bank roll is set to the buy in amount.
+    pub fn join_with_strategy(
+        &mut self,
+        name: &str,
+        strategy: BettingStrategy,
+    ) -> Result<(), &'static str> {
+        if self.full() {
+            return Err("Cannot add more players.");
+        }
+        let mut p = Player::build(name, self.buy_in);
+        p.betting_strategy = strategy;
+        self.players.insert(name.to_string(), p);
+        self.players_order.push(name.to_string());
+        Ok(())
+    }
+
     /// Play a game.
-    pub fn play(&mut self) {
+    pub fn play(&mut self) -> WinnerInfo {
         while self.players.len() > 1 {
             self.play_round();
             self.reset_after_round();
             self.num_rounds += 1;
         }
-        self.announce_winner();
+        let w = self.get_winner();
+        self.announce_winner(&w);
+        w
+    }
+
+    /// Determine the winner at the end of the game.
+    fn get_winner(&self) -> WinnerInfo {
+        let winner_opt = self.players_order.first();
+        if let Some(name) = winner_opt {
+            let winner = self.players.get(name).unwrap();
+            let name = winner.name.clone();
+            let winnings = winner.bank_roll;
+            let num_rounds = self.num_rounds;
+            WinnerInfo {
+                name,
+                num_rounds,
+                winnings,
+            }
+        } else {
+            panic!("Announcing winner but they have been removed...")
+        }
     }
 
     /// Announce the winner at the end of the game.
-    fn announce_winner(&self) {
-        if let Winner::Winner { name, .. } = self.winner.clone().unwrap() {
-            let takings = self.players.get(&name).unwrap().bank_roll;
-            let num_rounds = self.num_rounds;
-            println!(
-                "Congratulations {}, you played {} rounds and won with a bank roll of {}.",
-                name, num_rounds, takings
-            )
-        } else {
-            panic!("Announcing winner but there isn't one...")
-        }
+    fn announce_winner(&self, winner: &WinnerInfo) {
+        println!(
+            "Congratulations {}, you played {} rounds and won with a bank roll of {}.",
+            winner.name, winner.num_rounds, winner.winnings
+        );
     }
 
     /// Set the name of the dealer and reorder the players_order list
@@ -157,7 +196,7 @@ impl Game {
             let current_i = pos + 1 % self.players_order.len();
             self.players_order = rotate_vector(&self.players_order, current_i);
         } else {
-            panic!("Can't find player with name {}", dealer.unwrap());
+            self.dealer = Some(self.players_order.first().unwrap().clone());
         }
     }
 
@@ -303,7 +342,7 @@ impl Game {
 
         while !done {
             // Use the cloned players_order for iteration indexing
-            let current_name = &players[current];
+            let current_name = &players[current % players.len()];
 
             // Mutable borrow of self.players is short-lived within this loop iteration.
             let p = self.players.get_mut(current_name).unwrap();
@@ -334,13 +373,17 @@ impl Game {
                         if call == n {
                             self.pot += call;
                         } else {
-                            dbg!("Tried to call with amount too small.");
+                            dbg!(
+                                "Tried to call with amount too small. Call: {}, bet: {}",
+                                call,
+                                n
+                            );
                             p.folded = true;
                         }
                     }
                     Bet::Raise(raise) => {
                         if raise > call {
-                            if self.side_pot_active {
+                            if !self.side_pots.is_empty() {
                                 // Must get a mutable reference to side_pots here
                                 let side_pot = self.side_pots.get_mut(0).unwrap();
                                 side_pot.pot += raise;
@@ -358,7 +401,6 @@ impl Game {
                     }
                     Bet::AllIn(bet) => {
                         self.pot += bet;
-                        self.side_pot_active = true;
 
                         // not_all_in now contains owned Strings, so we can search by value.
                         if let Some(index) = not_all_in.iter().position(|value| value == &p.name) {
@@ -397,7 +439,6 @@ impl Game {
                     hand: best_hand,
                     cards,
                 };
-                dbg!("Winner (last player standing): {:?}", &winner);
                 self.winner = Some(winner);
             } else {
                 dbg!("No players remaining to determine winner.");
@@ -406,7 +447,6 @@ impl Game {
         }
 
         let winner = Game::determine_winner(hands);
-        dbg!(&winner);
         self.winner = Some(winner);
     }
 
@@ -454,7 +494,6 @@ impl Game {
                 cards,
             }) = hands.pop()
             {
-                dbg!("determine_winner: last player standing: {}", name.clone());
                 return Winner::Winner {
                     name,
                     hand: best_hand,
@@ -712,7 +751,6 @@ impl Game {
                     }
                 }
                 Winner::Draw(winners) => {
-                    dbg!("Multiple winners.");
                     // distribute main pot
                     let main_pot_share = main_pot / winners.len();
                     for PlayerHand {
@@ -808,7 +846,8 @@ impl Game {
     fn reset_after_round(&mut self) {
         self.pot = 0;
         self.side_pots = Vec::new();
-
+        self.community_cards = Vec::new();
+        self.deck = new_deck();
         let dealer_name_ref: Option<&String> = self.dealer.as_ref();
 
         let mut removed_names: Vec<String> = Vec::new();
@@ -822,6 +861,7 @@ impl Game {
                 .expect("Player in order list not found in map.");
             p.all_in = false;
             p.folded = false;
+            p.hole = None;
             let is_dealer = dealer_name_ref.unwrap() == name;
             // if player doesn't have enough chips to continue, mark for removal
             if (is_dealer && p.bank_roll < self.small_blind) || (p.bank_roll < self.big_blind) {

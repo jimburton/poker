@@ -57,7 +57,8 @@ impl Player {
         cycle: u8,
     ) -> Bet {
         let strategy = self.betting_strategy;
-        match strategy(call, min, self.bank_roll, community_cards, stage, cycle) {
+        let cards = self.add_hole_cards(community_cards);
+        match strategy(call, min, self.bank_roll, cards, stage, cycle) {
             Bet::Fold => Bet::Fold,
             Bet::Check => Bet::Check,
             Bet::Call(n) => {
@@ -73,6 +74,14 @@ impl Player {
                 Bet::AllIn(n)
             }
         }
+    }
+
+    /// Add the players hole cards to a list of cards.
+    fn add_hole_cards(&self, mut cards: Vec<Card>) -> Vec<Card> {
+        let (h1, h2) = self.hole.unwrap();
+        cards.push(h1);
+        cards.push(h2);
+        cards.clone()
     }
 
     ///

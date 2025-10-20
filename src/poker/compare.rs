@@ -20,18 +20,22 @@ pub fn best_hand(cards: &Vec<Card>) -> Hand {
     } else if ranks.len() > 1 && ranks[0].len() == 3 && ranks[1].len() == 2 {
         Hand::FullHouse(ranks[0][0].rank, ranks[1][0].rank)
     } else if !suits.is_empty() && suits[0].len() >= 5 {
-        let ls = suits.get(0).unwrap();
+        let ls = suits.first().unwrap();
         Hand::Flush(ls[4].rank, ls[3].rank, ls[2].rank, ls[1].rank, ls[0].rank)
     } else if ls.len() >= 5 {
         Hand::Straight(cards.iter().map(|a| a.rank).max().unwrap())
-    } else if ranks.len() > 0 && ranks[0].len() == 3 {
+    } else if !ranks.is_empty() && ranks[0].len() == 3 {
         Hand::ThreeOfAKind(ranks[0][0].rank)
     } else if ranks.len() > 1 && ranks[0].len() == 2 && ranks[1].len() == 2 {
         Hand::TwoPair(ranks[0][0].rank, ranks[1][0].rank)
     } else if !ranks.is_empty() && ranks[0].len() == 2 {
         Hand::OnePair(ranks[0][0].rank)
     } else {
-        Hand::HighCard(cards.iter().max().unwrap().rank)
+        if let Some(c) = cards.iter().max() {
+            Hand::HighCard(c.rank)
+        } else {
+            panic!("Called best hand with empty set of cards.");
+        }
     }
 }
 

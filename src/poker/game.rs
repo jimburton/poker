@@ -295,35 +295,50 @@ impl Game {
     /// sources suggest it should be the *big blind*, which is the player to the
     /// left of the small blind.
     fn place_bets(&mut self) {
+        // Clone players_order to safely iterate through it without conflicting
+        // with mutable borrows of self (which includes self.players).
         let players_order = self.players_order.clone();
-        let players = self.players.clone();
+
         if players_order.is_empty() {
             return;
         }
-        let mut not_all_in = Vec::new();
-        {
-            for p in players.values() {
-                if !p.all_in {
-                    not_all_in.push(&p.name);
-                }
-            }
-        }
+
+        // 1. FIX: Build not_all_in using owned Strings, not references.
+        // This iteration happens before the main loop and does not conflict.
+        let mut not_all_in: Vec<String> = self
+            .players
+            .values()
+            .filter(|p| !p.all_in)
+            .map(|p| p.name.clone())
+            .collect();
+
         let mut current: usize = 0;
-        let mut target: &String = self.players_order.last().unwrap();
+        // 2. FIX: 'target' is now an owned String, breaking the lifetime dependency on self.players_order.
+        let mut target: String = players_order.last().unwrap().clone();
+
         let mut done: bool = false;
         let mut call: usize = 0;
         let min = self.big_blind;
+
         while !done {
-            let current_name = self.players_order[current];
-            let p = self.players.get_mut(&current_name).unwrap();
-            if &p.name == target {
+            // Use the cloned players_order for iteration indexing
+            let current_name = &players_order[current];
+
+            // Mutable borrow of self.players is short-lived within this loop iteration.
+            let p = self.players.get_mut(current_name).unwrap();
+
+            // Compare the player's name with the owned target String.
+            if p.name == target {
                 done = true;
             } else {
                 if !p.folded {
                     let ccards = self.community_cards.clone();
                     let bet = p.place_bet(call, min, ccards);
+
                     match bet {
-                        Bet::Fold => {}
+                        Bet::Fold => {
+                            // Logic inside match block is now safe because 'p' is the only active borrow
+                        }
                         Bet::Check => {}
                         Bet::Call(n) => {
                             if call == n {
@@ -336,13 +351,16 @@ impl Game {
                         Bet::Raise(raise) => {
                             if raise > call {
                                 if self.side_pot_active {
-                                    let mut side_pot = self.side_pots.get(0).unwrap();
+                                    // Must get a mutable reference to side_pots here
+                                    let side_pot = self.side_pots.get_mut(0).unwrap();
                                     side_pot.pot += raise;
                                 } else {
                                     self.pot += raise;
                                 }
-                                call += raise - call;
-                                target = &p.name;
+                                // Assuming 'raise' is the new total amount to match/beat
+                                call = raise;
+                                // 3. FIX: Clone the player's name into the owned 'target' String.
+                                target = p.name.clone();
                             } else {
                                 dbg!("Tried to raise less than call.");
                                 p.folded = true;
@@ -351,21 +369,25 @@ impl Game {
                         Bet::AllIn(n) => {
                             self.pot += n;
                             self.side_pot_active = true;
+
+                            // not_all_in now contains owned Strings, so we can search by value.
                             if let Some(index) =
-                                not_all_in.iter().position(|value| **value == p.name)
+                                not_all_in.iter().position(|value| value == &p.name)
                             {
                                 not_all_in.swap_remove(index);
                             }
-                            let not_all_in = not_all_in.clone().iter().map(|n| **n).collect();
+
+                            // Clone the list for the new side pot's players
                             let new_side_pot = SidePot {
-                                players: not_all_in,
+                                players: not_all_in.clone(),
                                 pot: 0,
                             };
                             self.side_pots.push(new_side_pot);
                         }
                     }
                 }
-                current = current + 1 % self.players_order.len();
+                // 4. FIX: Corrected modulo operation to ensure 'current' wraps correctly.
+                current = (current + 1) % players_order.len();
             }
         }
     }
@@ -551,153 +573,156 @@ impl Game {
     ///
     /// TODO keep track of chips being lost due to truncating division.
     fn distribute_pots(&mut self) {
-        if let Some(winner) = &self.winner {
-            match winner {
-                Winner::Winner { name, .. } => {
-                    dbg!("\n--- Pot Distribution (outright winner) ---");
-                    if let Some(player) = self.players.get_mut(name) {
-                        if !player.all_in {
-                            let side_pot: usize = self.side_pots.iter().map(|sp| sp.pot).sum();
-                            let total_pot: usize = self.pot + side_pot;
-                            player.bank_roll += total_pot;
-                            dbg!("{} wins {} chips!", name, total_pot);
-                        } else {
-                            // Deal with side pots.
-                            // FIX: Clone side_pots to iterate over owned data, releasing the immutable borrow on `self`.
-                            let side_pots_to_process = self.side_pots.clone();
-                            let mut winner_side_pot: usize = 0;
+        dbg!("TODO");
+        /*
+            if let Some(winner) = &self.winner {
+                match winner {
+                    Winner::Winner { name, .. } => {
+                        dbg!("\n--- Pot Distribution (outright winner) ---");
+                        if let Some(player) = self.players.get_mut(name) {
+                            if !player.all_in {
+                                let side_pot: usize = self.side_pots.iter().map(|sp| sp.pot).sum();
+                                let total_pot: usize = self.pot + side_pot;
+                                player.bank_roll += total_pot;
+                                dbg!("{} wins {} chips!", name, total_pot);
+                            } else {
+                                // Deal with side pots.
+                                // FIX: Clone side_pots to iterate over owned data, releasing the immutable borrow on `self`.
+                                let side_pots_to_process = self.side_pots.clone();
+                                let mut winner_side_pot: usize = 0;
 
-                            // FIX: Switched from for_each to a standard 'for' loop for safer mutable access.
-                            for mut sp in side_pots_to_process {
-                                // if the winner is in this side pot they get the winnings.
-                                if sp.players.contains(name) {
-                                    winner_side_pot += sp.pot;
-                                } else {
-                                    // determine winners and allocate winnings.
-                                    let w = self.determine_side_pot_winner(&sp);
-                                    // players in side pot who did not fold
-                                    let players = sp.players.clone();
-                                    let active = self.not_folded(&&players);
-                                    if !active.is_empty() {
-                                        // there are some left, they get the side pot
-                                        sp.players = active;
-                                        // FIX: Replace self.allocate_side_pot_winnings with inline allocation logic
-                                        // to separate the immutable borrow (from w) from the mutable borrow (self.players.get_mut).
-                                        match w {
-                                            Winner::Winner {
-                                                name: winner_name, ..
-                                            } => {
-                                                self.players
-                                                    .get_mut(&winner_name)
-                                                    .unwrap()
-                                                    .bank_roll += sp.pot;
-                                            }
-                                            Winner::Draw(draw_players) => {
-                                                let win = sp.pot / draw_players.len();
-                                                draw_players.iter().for_each(
-                                                    |(name, _hand, _cards)| {
-                                                        dbg!("{} wins {} from side pot", name, win);
-                                                        self.players
-                                                            .get_mut(name)
-                                                            .unwrap()
-                                                            .bank_roll += win;
-                                                    },
-                                                );
-                                            }
-                                        }
-                                    } else {
-                                        // side pot goes to winner even though they weren't in it
+                                // FIX: Switched from for_each to a standard 'for' loop for safer mutable access.
+                                for mut sp in side_pots_to_process {
+                                    // if the winner is in this side pot they get the winnings.
+                                    if sp.players.contains(name) {
                                         winner_side_pot += sp.pot;
+                                    } else {
+                                        // determine winners and allocate winnings.
+                                        let w = self.determine_side_pot_winner(&sp);
+                                        // players in side pot who did not fold
+                                        let players = sp.players.clone();
+                                        let active = self.not_folded(&&players);
+                                        if !active.is_empty() {
+                                            // there are some left, they get the side pot
+                                            sp.players = active;
+                                            // FIX: Replace self.allocate_side_pot_winnings with inline allocation logic
+                                            // to separate the immutable borrow (from w) from the mutable borrow (self.players.get_mut).
+                                            match w {
+                                                Winner::Winner {
+                                                    name: winner_name, ..
+                                                } => {
+                                                    self.players
+                                                        .get_mut(&winner_name)
+                                                        .unwrap()
+                                                        .bank_roll += sp.pot;
+                                                }
+                                                Winner::Draw(draw_players) => {
+                                                    let win = sp.pot / draw_players.len();
+                                                    draw_players.iter().for_each(
+                                                        |(name, _hand, _cards)| {
+                                                            dbg!("{} wins {} from side pot", name, win);
+                                                            self.players
+                                                                .get_mut(name)
+                                                                .unwrap()
+                                                                .bank_roll += win;
+                                                        },
+                                                    );
+                                                }
+                                            }
+                                        } else {
+                                            // side pot goes to winner even though they weren't in it
+                                            winner_side_pot += sp.pot;
+                                        }
                                     }
                                 }
-                            }
-                            player.bank_roll += winner_side_pot;
-                            dbg!("{} wins {} chips!", name, winner_side_pot);
-                        }
-                    } else {
-                        dbg!("Error: Winner {} not found in player list.", name);
-                    }
-                }
-                Winner::Draw(draw_winners) => {
-                    // no outright winner
-                    let num_winners = draw_winners.len();
-                    let num_winners_not_all_in = draw_winners
-                        .iter()
-                        .filter(|(name, _hand, _cards)| {
-                            dbg!("Looking for player: {}", name);
-                            let p = self.players.get(name).expect("Couldn't find player");
-                            !p.all_in
-                        })
-                        .collect::<Vec<_>>()
-                        .len();
-
-                    if num_winners == 0 {
-                        dbg!("Error: Draw with no winners found.");
-                        return;
-                    }
-                    // the winners take an equal share of the main pot
-                    let main_pot_share = self.pot / num_winners;
-                    dbg!("\n--- Pot Distribution (draw) ---");
-                    dbg!(
-                        "Draw between {} players. Each player gets {} share of the main pot.",
-                        num_winners,
-                        main_pot_share
-                    );
-
-                    let mut winners_pot_share: usize = main_pot_share;
-
-                    // Deal with side pots.
-                    // We clone the side pots here to safely iterate over them while
-                    // potentially modifying 'self' (e.g., player bank_roll) inside the loop.
-                    let side_pots_to_process = self.side_pots.clone();
-
-                    let mut unclaimed_side_pots: usize = 0;
-
-                    for mut sp in side_pots_to_process {
-                        // Iterate over owned data
-                        // determine winners and allocate winnings.
-                        let w = self.determine_side_pot_winner(&sp);
-                        // players in side pot who did not fold
-                        // Using sp.players directly now that sp is mut and owned
-                        let active = self.not_folded(&sp.players);
-                        if !active.is_empty() {
-                            // there are some left, they get the side pot
-                            sp.players = active;
-                            match w {
-                                Winner::Winner { name, .. } => {
-                                    self.players.get_mut(&name).unwrap().bank_roll += sp.pot;
-                                }
-                                Winner::Draw(players) => {
-                                    // Fix: Use 'players.len()' (number of winners) for division
-                                    let win = sp.pot / players.len();
-                                    players.iter().for_each(|(name, _hand, _cards)| {
-                                        dbg!("{} wins {} from side pot", name, win);
-                                        self.players.get_mut(name).unwrap().bank_roll += win;
-                                    });
-                                }
+                                player.bank_roll += winner_side_pot;
+                                dbg!("{} wins {} chips!", name, winner_side_pot);
                             }
                         } else {
-                            // side pot goes to winner even though they weren't in it
-                            unclaimed_side_pots += sp.pot;
+                            dbg!("Error: Winner {} not found in player list.", name);
                         }
                     }
-                    winners_pot_share += unclaimed_side_pots / draw_winners.len();
-                    dbg!(
-                        "Each winner gets an additional {} from side pots.",
-                        winners_pot_share
-                    );
-                    for (name, _, _) in draw_winners.into_iter() {
-                        if let Some(player) = self.players.get_mut(name) {
-                            player.bank_roll += winners_pot_share;
-                        } else {
-                            panic!("Couldn't find player.");
+                    Winner::Draw(draw_winners) => {
+                        // no outright winner
+                        let num_winners = draw_winners.len();
+                        let num_winners_not_all_in = draw_winners
+                            .iter()
+                            .filter(|(name, _hand, _cards)| {
+                                dbg!("Looking for player: {}", name);
+                                let p = self.players.get(name).expect("Couldn't find player");
+                                !p.all_in
+                            })
+                            .collect::<Vec<_>>()
+                            .len();
+
+                        if num_winners == 0 {
+                            dbg!("Error: Draw with no winners found.");
+                            return;
+                        }
+                        // the winners take an equal share of the main pot
+                        let main_pot_share = self.pot / num_winners;
+                        dbg!("\n--- Pot Distribution (draw) ---");
+                        dbg!(
+                            "Draw between {} players. Each player gets {} share of the main pot.",
+                            num_winners,
+                            main_pot_share
+                        );
+
+                        let mut winners_pot_share: usize = main_pot_share;
+
+                        // Deal with side pots.
+                        // We clone the side pots here to safely iterate over them while
+                        // potentially modifying 'self' (e.g., player bank_roll) inside the loop.
+                        let side_pots_to_process = self.side_pots.clone();
+
+                        let mut unclaimed_side_pots: usize = 0;
+
+                        for mut sp in side_pots_to_process {
+                            // Iterate over owned data
+                            // determine winners and allocate winnings.
+                            let w = self.determine_side_pot_winner(&sp);
+                            // players in side pot who did not fold
+                            // Using sp.players directly now that sp is mut and owned
+                            let active = self.not_folded(&sp.players);
+                            if !active.is_empty() {
+                                // there are some left, they get the side pot
+                                sp.players = active;
+                                match w {
+                                    Winner::Winner { name, .. } => {
+                                        self.players.get_mut(&name).unwrap().bank_roll += sp.pot;
+                                    }
+                                    Winner::Draw(players) => {
+                                        // Fix: Use 'players.len()' (number of winners) for division
+                                        let win = sp.pot / players.len();
+                                        players.iter().for_each(|(name, _hand, _cards)| {
+                                            dbg!("{} wins {} from side pot", name, win);
+                                            self.players.get_mut(name).unwrap().bank_roll += win;
+                                        });
+                                    }
+                                }
+                            } else {
+                                // side pot goes to winner even though they weren't in it
+                                unclaimed_side_pots += sp.pot;
+                            }
+                        }
+                        winners_pot_share += unclaimed_side_pots / draw_winners.len();
+                        dbg!(
+                            "Each winner gets an additional {} from side pots.",
+                            winners_pot_share
+                        );
+                        for (name, _, _) in draw_winners.into_iter() {
+                            if let Some(player) = self.players.get_mut(name) {
+                                player.bank_roll += winners_pot_share;
+                            } else {
+                                panic!("Couldn't find player.");
+                            }
                         }
                     }
                 }
-            }
-        } else {
-            dbg!("Winner not chosen.");
+            } else {
+                dbg!("Winner not chosen.");
         }
+        */
     }
 
     fn reset_after_round(&mut self) {

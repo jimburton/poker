@@ -1,4 +1,4 @@
-use crate::poker::card::Card;
+use crate::poker::card::{Card, Hand};
 use crate::poker::game::Bet;
 
 #[derive(Debug, Clone)]
@@ -10,6 +10,13 @@ pub struct Player {
     pub all_in: bool,
     pub folded: bool,
     pub betting_strategy: fn(usize, usize, usize, Vec<Card>) -> Bet,
+}
+
+#[derive(Debug, Clone)]
+pub struct PlayerHand {
+    pub name: String,
+    pub best_hand: Hand,
+    pub cards: Vec<Card>,
 }
 
 impl Player {
@@ -34,7 +41,7 @@ impl Player {
     /// + call the bet.
     fn default_betting_strategy(
         call: usize,
-        min: usize,
+        _min: usize,
         bank_roll: usize,
         _cards: Vec<Card>,
     ) -> Bet {
@@ -47,6 +54,33 @@ impl Player {
         } else {
             Bet::Call(call)
         }
+    }
+
+    /// Default betting strategy, which does the following:
+    ///
+    /// + fold if necessary,
+    /// + goes all in if neccessary,
+    /// + bet the minimum amount if currently zero,
+    /// + call the bet.
+    fn modest_betting_strategy(
+        call: usize,
+        min: usize,
+        bank_roll: usize,
+        _cards: Vec<Card>,
+    ) -> Bet {
+        if bank_roll == 0 {
+            Bet::Fold
+        } else if bank_roll <= call {
+            Bet::AllIn(bank_roll)
+        } else if call == 0 {
+            Bet::Raise(min)
+        } else {
+            Bet::Call(call)
+        }
+    }
+
+    pub fn set_betting_strategy(&mut self, strategy: fn(usize, usize, usize, Vec<Card>) -> Bet) {
+        self.betting_strategy = strategy;
     }
 
     /// Place a bet.
@@ -71,8 +105,8 @@ impl Player {
     }
 
     ///
-    /// Buy in to a new round.
-    pub fn ante_up(&mut self, buy_in: usize) -> Result<usize, &'static str> {
+    /// Buy in to the game. Player is removed by Game if they don't buy in.
+    pub fn buy_in(&mut self, buy_in: usize) -> Result<usize, &'static str> {
         if self.bank_roll >= buy_in {
             self.bank_roll -= buy_in;
             Ok(buy_in)
@@ -80,5 +114,32 @@ impl Player {
             self.folded = true;
             Err("Can't join game.")
         }
+    }
+    ///
+    /// Buy in to a new round.
+    pub fn ante_up(&mut self, ante: usize) -> Result<usize, &'static str> {
+        if self.bank_roll >= ante {
+            self.bank_roll -= ante;
+            Ok(ante)
+        } else {
+            self.folded = true;
+            Err("Can't join round.")
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::poker::card::{Card, Hand, Rank, Suit};
+
+    #[test]
+    fn test_build() {
+        let player = Player::build("James", 10_000);
+        assert!(
+            player.name == "James",
+            "Expected new player to have name=='James', was {}",
+            player.name
+        );
     }
 }

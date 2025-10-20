@@ -2,6 +2,7 @@ use std::cmp::Ordering;
 
 use crate::poker::card::{Card, Hand};
 use crate::poker::game::Winner;
+use crate::poker::player::PlayerHand;
 use crate::poker::sequence::{group_by_rank, group_by_suit, longest_sequence, same_suit};
 
 pub fn best_hand(cards: &Vec<Card>) -> Hand {
@@ -55,9 +56,18 @@ pub fn compare_hands(
     } else {
         match (h_a, h_b) {
             // If two straight flushes have the same highest card, it's a draw
-            (Hand::StraightFlush(_r1), Hand::StraightFlush(_r2)) => {
-                Winner::Draw(vec![(name_a, h_a, c_a), (name_b, h_b, c_b)])
-            }
+            (Hand::StraightFlush(_r1), Hand::StraightFlush(_r2)) => Winner::Draw(vec![
+                PlayerHand {
+                    name: name_a,
+                    best_hand: h_a,
+                    cards: c_a,
+                },
+                PlayerHand {
+                    name: name_b,
+                    best_hand: h_b,
+                    cards: c_b,
+                },
+            ]),
             // No draw for two four of a kinds
             (Hand::FourOfAKind(r1), Hand::FourOfAKind(r2)) => {
                 if r1 > r2 {
@@ -98,7 +108,18 @@ pub fn compare_hands(
                         hand: h_b,
                         cards: c_b,
                     },
-                    Ordering::Equal => Winner::Draw(vec![(name_a, h_a, c_a), (name_b, h_b, c_b)]),
+                    Ordering::Equal => Winner::Draw(vec![
+                        PlayerHand {
+                            name: name_a,
+                            best_hand: h_a,
+                            cards: c_a,
+                        },
+                        PlayerHand {
+                            name: name_b,
+                            best_hand: h_b,
+                            cards: c_b,
+                        },
+                    ]),
                 },
             },
             // if two players have a flush, the highest card wins. If the highest cards
@@ -162,7 +183,18 @@ fn highest_cards(hand_a: (String, Hand, Vec<Card>), hand_b: (String, Hand, Vec<C
     }
 
     // If the loop completes, all cards are identical (full draw).
-    Winner::Draw(vec![(name_a, h_a, c_a), (name_b, h_b, c_b)])
+    Winner::Draw(vec![
+        PlayerHand {
+            name: name_a,
+            best_hand: h_a,
+            cards: c_a,
+        },
+        PlayerHand {
+            name: name_b,
+            best_hand: h_b,
+            cards: c_b,
+        },
+    ])
 }
 
 #[cfg(test)]

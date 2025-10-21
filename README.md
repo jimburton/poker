@@ -87,3 +87,8 @@ standard in various ways.
   who contributed to it are still in the game, that side pot is distributed
   among the winners of the main pot.
   
+# TODO
+
++ Make game API more functional, with the "stage" functions having the
+  signature `Game -> Game`.
++ Add interactive players.

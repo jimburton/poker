@@ -2,7 +2,7 @@ use crate::poker::betting_strategy::BettingStrategy;
 use crate::poker::card::{new_deck, Card, Hand};
 use crate::poker::compare::{best_hand, compare_hands};
 use crate::poker::player::{
-    AutoPlayer, Msg, Player, PlayerHand, RoundWinnerInfo, Winner, WinnerInfo,
+    Actor, AutoActor, Msg, PlayerHand, RoundWinnerInfo, Winner, WinnerInfo,
 };
 use crate::poker::rotate_vector;
 use num_traits::ToPrimitive;
@@ -10,7 +10,7 @@ use rand::rng;
 use rand::seq::SliceRandom;
 use std::collections::HashMap;
 
-use super::player::Update;
+use super::player::{Player, Update};
 
 /// Datatypes and functions for the game and individual rounds.
 
@@ -46,7 +46,7 @@ struct SidePot {
 /// Struct for the game.
 #[derive(Debug)]
 pub struct Game {
-    players: HashMap<String, Box<dyn Player>>,
+    players: HashMap<String, Box<Player>>,
     players_order: Vec<String>,
     dealer: Option<String>,
     buy_in: usize,
@@ -99,13 +99,13 @@ impl Game {
     }
 
     /// Allows a player to join the game. The player's bank roll is set to the buy in amount.
-    pub fn join(&mut self, mut player: impl Player + 'static) -> Result<(), &'static str> {
+    pub fn join(&mut self, mut player: Player) -> Result<(), &'static str> {
         if self.full() {
             return Err("Cannot add more players.");
         }
-        let name = player.get_name();
-        println!("Player joining: {}", name.clone());
-        player.set_bank_roll(self.buy_in);
+        let name = player.name.clone();
+        println!("Player joining: {}", name);
+        player.bank_roll = self.buy_in;
         self.players.insert(name.clone(), Box::new(player));
         self.players_order.push(name);
         Ok(())
@@ -129,8 +129,8 @@ impl Game {
         let winner_opt = self.players_order.first();
         if let Some(name) = winner_opt {
             let winner = self.players.get(name).unwrap();
-            let name = winner.get_name().clone();
-            let winnings = winner.get_bank_roll();
+            let name = winner.name.clone();
+            let winnings = winner.bank_roll;
             let num_rounds = self.num_rounds;
             WinnerInfo {
                 name,
@@ -221,7 +221,7 @@ impl Game {
 
             // Mutably borrow the player and execute the action
             if let Some(first_p) = self.players.get_mut(left_of_dealer) {
-                if let Ok(blind) = first_p.ante_up(self.small_blind) {
+                if let Some(blind) = first_p.ante_up(self.small_blind) {
                     self.pot += blind;
                 }
                 // NB: player marks themself as folded if they responded negatively
@@ -235,7 +235,7 @@ impl Game {
             // Mutably borrow the current player 'p'
             if let Some(p) = self.players.get_mut(name) {
                 // The players map is only borrowed for the duration of this 'if let' block.
-                if let Ok(blind) = p.ante_up(self.big_blind) {
+                if let Some(blind) = p.ante_up(self.big_blind) {
                     self.pot += blind
                 }
             }
@@ -248,7 +248,7 @@ impl Game {
         self.players.iter_mut().for_each(|(_, p)| {
             let c1 = deck.pop().unwrap();
             let c2 = deck.pop().unwrap();
-            p.accept_hole_cards(Some((c1, c2)));
+            p.hole = Some((c1, c2));
         });
         self.deck = deck;
     }
@@ -293,8 +293,8 @@ impl Game {
         let not_folded: Vec<(String, bool)> = self
             .players
             .values()
-            .filter(|p| !p.get_folded())
-            .map(|p| (p.get_name().clone(), p.get_all_in()))
+            .filter(|p| !p.folded)
+            .map(|p| (p.name.clone(), p.all_in))
             .collect();
         // names of players who have not folded and are not all in
         let mut not_all_in: Vec<String> = not_folded
@@ -330,10 +330,10 @@ impl Game {
             let p = self.players.get_mut(current_name).unwrap();
 
             // Compare the player's name with the owned target String.
-            if p.get_name() == target && target_placed_bet {
+            if p.name == target && target_placed_bet {
                 done = true;
             } else {
-                if p.get_name() == target {
+                if p.name == target {
                     target_placed_bet = true;
                     cycle += 1;
                 }
@@ -345,7 +345,7 @@ impl Game {
 
                 match bet {
                     Bet::Fold => {
-                        p.set_folded(true);
+                        p.folded = true;
                         players.remove(current);
                         continue; // continue without incrementing current
                     }
@@ -369,19 +369,17 @@ impl Game {
                             // raise is the new total amount to match/beat
                             call = raise;
                             // 3. FIX: Clone the player's name into the owned 'target' String.
-                            target = p.get_name().clone();
+                            target = p.name.clone();
                         } else {
                             dbg!("Tried to raise less than call.");
-                            p.set_folded(true);
+                            p.folded = true;
                         }
                     }
                     Bet::AllIn(bet) => {
                         self.pot += bet;
 
                         // not_all_in now contains owned Strings, so we can search by value.
-                        if let Some(index) =
-                            not_all_in.iter().position(|value| value == &p.get_name())
-                        {
+                        if let Some(index) = not_all_in.iter().position(|value| value == &p.name) {
                             not_all_in.swap_remove(index);
                         }
 
@@ -394,7 +392,7 @@ impl Game {
                     }
                 }
                 let update = Msg::MsgBet(Update {
-                    player: p.get_name().clone(),
+                    player: p.name.clone(),
                     bet,
                 });
                 self.players.iter().for_each(|(_name, p)| {
@@ -407,7 +405,7 @@ impl Game {
         }
     }
 
-    fn update_interactive_players(&self, update: &Msg) {
+    fn update_players(&self, update: &Msg) {
         self.players.iter().for_each(|(_name, p)| {
             p.update(update);
         });
@@ -452,12 +450,12 @@ impl Game {
             .iter() // Use iter() since we don't need to mutate Player state here
             .filter_map(|(_, p)| {
                 // Only consider players who haven't folded
-                if p.get_folded() || !names.contains(&p.get_name()) {
+                if p.folded || !names.contains(&p.name) {
                     return None;
                 }
 
                 let (c1, c2) = p
-                    .get_hole()
+                    .hole
                     .expect("Hole cards should be dealt before calling names_to_hands");
 
                 // Collect all 7 cards (2 hole + 5 community)
@@ -467,7 +465,7 @@ impl Game {
 
                 let best_hand = best_hand(&all_cards);
                 Some(PlayerHand {
-                    name: p.get_name().clone(),
+                    name: p.name.clone(),
                     best_hand,
                     cards: all_cards,
                 })
@@ -618,18 +616,18 @@ impl Game {
         let not_folded: Vec<(PlayerHand, bool)> = self
             .players
             .values()
-            .filter(|p| !p.get_folded())
+            .filter(|p| !p.folded)
             .map(|p| {
-                let (c1, c2) = p.get_hole().unwrap();
+                let (c1, c2) = p.hole.unwrap();
                 let mut cards = ccards.clone();
                 cards.extend(vec![c1, c2]);
                 (
                     PlayerHand {
-                        name: p.get_name().clone(),
+                        name: p.name.clone(),
                         best_hand: best_hand(&cards),
                         cards,
                     },
-                    p.get_all_in(),
+                    p.all_in,
                 )
             })
             .collect();
@@ -821,7 +819,7 @@ impl Game {
             for (name, pot_share) in winnings.clone() {
                 if pot_share > 0 {
                     match self.players.get_mut(&name) {
-                        Some(value) => value.set_bank_roll(value.get_bank_roll() + pot_share),
+                        Some(value) => value.bank_roll += pot_share,
                         None => panic!("Key '{}' does not exist in the HashMap.", name),
                     }
                 }
@@ -849,14 +847,12 @@ impl Game {
                 .players
                 .get_mut(name)
                 .expect("Player in order list not found in map.");
-            p.set_all_in(false);
-            p.set_folded(false);
-            p.accept_hole_cards(None);
+            p.all_in = false;
+            p.folded = false;
+            p.hole = None;
             let is_dealer = dealer_name_ref.unwrap() == name;
             // if player doesn't have enough chips to continue, mark for removal
-            if (is_dealer && p.get_bank_roll() < self.small_blind)
-                || (p.get_bank_roll() < self.big_blind)
-            {
+            if (is_dealer && p.bank_roll < self.small_blind) || (p.bank_roll < self.big_blind) {
                 removed_names.push(name.clone());
             }
         }
@@ -895,9 +891,9 @@ mod tests {
     #[test]
     fn test_add_too_many_players() {
         let mut game = Game::build(10, 2);
-        let _ = game.join(AutoPlayer::build("player1"));
-        let _ = game.join(AutoPlayer::build("player2"));
-        if let Err(e) = game.join(AutoPlayer::build("player3")) {
+        game.join(Player::build("player1", AutoActor::new()));
+        let _ = game.join(Player::build("player2", AutoActor::new()));
+        if let Err(e) = game.join(Player::new("player3", AutoActor::new())) {
             assert!(
                 e == "Cannot add more players.",
                 "Expected 'Cannot add more players.', was {}",
@@ -911,8 +907,8 @@ mod tests {
     #[test]
     fn test_players_receive_bank_roll() {
         let mut game = Game::build(20, 2);
-        let _ = game.join(AutoPlayer::build("player1"));
-        let _ = game.join(AutoPlayer::build("player2"));
+        let _ = game.join(Player::new("player1", AutoActor::new()));
+        let _ = game.join(Player::new("player2", AutoActor::new()));
         // each player should receive 100 x big blind
         game.players.values().for_each(|p| {
             assert!(
@@ -927,8 +923,8 @@ mod tests {
     #[test]
     fn test_deal_hole_cards() {
         let mut game = Game::build(20, 2);
-        let _ = game.join(AutoPlayer::build("player1"));
-        let _ = game.join(AutoPlayer::build("player2"));
+        let _ = game.join(Player::new("player1", AutoActor::new()));
+        let _ = game.join(Player::new("player2", AutoActor::new()));
         game.deal_hole_cards();
         assert!(
             game.deck.len() == 48,
@@ -956,8 +952,8 @@ mod tests {
     #[test]
     fn test_place_bets_default_strategy() {
         let mut game = Game::build(20, 2);
-        let _ = game.join(AutoPlayer::build("player1"));
-        let _ = game.join(AutoPlayer::build("player2"));
+        let _ = game.join(Player::new("player1", AutoActor::new()));
+        let _ = game.join(Player::new("player2", AutoActor::new()));
         game.order_players();
         game.deal_hole_cards();
 
@@ -1033,8 +1029,8 @@ mod tests {
     #[test]
     fn test_place_bets_modest_strategy() {
         let mut game = Game::build(20, 2);
-        let _ = game.join(AutoPlayer::build("player1"));
-        let _ = game.join(AutoPlayer::build("player2"));
+        let _ = game.join(Player::build("player1", AutoActor::new()));
+        let _ = game.join(Player::build("player2", AutoActor::new()));
         game.order_players();
         game.deal_hole_cards();
 
@@ -1050,9 +1046,9 @@ mod tests {
         );
         game.players.iter().for_each(|(_name, p)| {
             assert!(
-                p.get_bank_roll() == 1980,
+                p.bank_roll == 1980,
                 "Expected p.bank_roll to be 1980, was {}.",
-                p.get_bank_roll()
+                p.bank_roll
             );
         });
     }
@@ -1060,9 +1056,9 @@ mod tests {
     #[test]
     fn test_place_bets_folded_player() {
         let mut game = Game::build(20, 3);
-        let _ = game.join(AutoPlayer::build("player1"));
-        let _ = game.join(AutoPlayer::build("player2"));
-        let _ = game.join(AutoPlayer::build("player3"));
+        let _ = game.join(Player::build("player1", AutoActor::new()));
+        let _ = game.join(Player::build("player2", AutoActor::new()));
+        let _ = game.join(Player::build("player3", AutoActor::new()));
         game.order_players();
         game.deal_hole_cards();
 
@@ -1083,15 +1079,15 @@ mod tests {
         game.players.iter().for_each(|(_name, p)| {
             if p.name == "player2" {
                 assert!(
-                    p.get_bank_roll() == 2000,
+                    p.bank_roll == 2000,
                     "Expected p.bank_roll to be 2000, was {}.",
-                    p.get_bank_roll()
+                    p.bank_roll
                 );
             } else {
                 assert!(
-                    p.get_bank_roll() == 1980,
+                    p.bank_roll == 1980,
                     "Expected p.bank_roll to be 1980, was {}.",
-                    p.get_bank_roll()
+                    p.bank_roll
                 );
             }
         });
@@ -1100,8 +1096,8 @@ mod tests {
     #[test]
     fn test_deal_flop() {
         let mut game = Game::build(20, 2);
-        let _ = game.join(AutoPlayer::build("player1"));
-        let _ = game.join(AutoPlayer::build("player2"));
+        let _ = game.join(Player::build("player1", AutoActor::new()));
+        let _ = game.join(Plater::build("player2", AutoActor::new()));
         game.deal_hole_cards();
         game.place_bets();
         game.deal_flop();
@@ -1127,8 +1123,8 @@ mod tests {
     #[test]
     fn test_deal_turn() {
         let mut game = Game::build(20, 2);
-        let _ = game.join(AutoPlayer::build("player1"));
-        let _ = game.join(AutoPlayer::build("player2"));
+        let _ = game.join(Player::build("player1", AutoActor::new()));
+        let _ = game.join(Player::build("player2", AutoActor::new()));
         game.deal_hole_cards();
         game.place_bets();
         game.deal_flop();
@@ -1156,8 +1152,8 @@ mod tests {
     #[test]
     fn test_deal_river() {
         let mut game = Game::build(20, 2);
-        let _ = game.join(AutoPlayer::build("player1"));
-        let _ = game.join(AutoPlayer::build("player2"));
+        let _ = game.join(Player::build("player1", AutoActor::new()));
+        let _ = game.join(Player::build("player2", AutoActor::new()));
         game.deal_hole_cards();
         game.place_bets();
         game.deal_flop();
@@ -1187,8 +1183,8 @@ mod tests {
     #[test]
     fn test_showdown() {
         let mut game = Game::build(20, 2);
-        let _ = game.join(AutoPlayer::build("player1"));
-        let _ = game.join(AutoPlayer::build("player2"));
+        let _ = game.join(Player::build("player1", AutoActor::new()));
+        let _ = game.join(Player::build("player2", AutoActor::new()));
 
         // test outight winner
         let p1_hole = Some((
@@ -1214,9 +1210,9 @@ mod tests {
         ));
         game.players.iter_mut().for_each(|(name, p)| {
             if name == "player1" {
-                p.accept_hole_cards(p1_hole);
+                p.hole = p1_hole;
             } else {
-                p.accept_hole_cards(p2_hole);
+                p.hole_cards = p2_hole;
             }
         });
 
@@ -1294,9 +1290,9 @@ mod tests {
 
         game.players.iter_mut().for_each(|(name, p)| {
             if name == "player1" {
-                p.accept_hole_cards(p1_hole);
+                p.hole = p1_hole;
             } else {
-                p.accept_hole_cards(p2_hole);
+                p.hole_cards = p2_hole;
             }
         });
 
@@ -1353,8 +1349,8 @@ mod tests {
     #[test]
     fn test_distribute_pot() {
         let mut game = Game::build(20, 3);
-        let _ = game.join(AutoPlayer::build("player1"));
-        let _ = game.join(AutoPlayer::build("player2"));
+        let _ = game.join(Player::build("player1", AutoActor::new()));
+        let _ = game.join(Player::build("player2", AutoActor::new()));
 
         game.deal_hole_cards();
         // test outight winner
@@ -1384,9 +1380,9 @@ mod tests {
         {
             let p = game.players.get(&name).unwrap();
             assert!(
-                p.get_bank_roll() == 2120,
+                p.bank_roll == 2120,
                 "Expected winner bankroll to be 2120, was {}",
-                p.get_bank_roll()
+                p.bank_roll
             );
         } else {
             panic!("Expected a winner.");
@@ -1395,7 +1391,7 @@ mod tests {
         // test a draw with no side pot
 
         game.players.iter_mut().for_each(|(_name, p)| {
-            p.set_bank_roll(0);
+            p.bank_roll = 0;
         });
         game.pot = 120;
         game.winner = Some(Winner::Draw(vec![
@@ -1426,9 +1422,9 @@ mod tests {
                  }| {
                     let p = game.players.get(name).unwrap();
                     assert!(
-                        p.get_bank_roll() == 60,
+                        p.bank_roll == 60,
                         "Expected player to have bankroll == 60, was {}.",
-                        p.get_bank_roll()
+                        p.bank_roll
                     );
                 },
             );
@@ -1438,12 +1434,12 @@ mod tests {
 
         // test a draw with a side pot
 
-        let _ = game.join(AutoPlayer::build("player3"));
+        let _ = game.join(Player::build("player3", AutoActor::new()));
         //game.deal_hole_cards();
         // players 2 and 3 are all in
         game.players.iter_mut().for_each(|(_name, p)| {
-            p.set_bank_roll(0);
-            p.accept_hole_cards(Some((
+            p.bank_roll = 0;
+            p.hole = Some((
                 Card {
                     rank: Rank::Rank2,
                     suit: Suit::Clubs,
@@ -1452,9 +1448,9 @@ mod tests {
                     rank: Rank::Rank3,
                     suit: Suit::Clubs,
                 },
-            )));
-            if p.get_name() == "player2" || p.get_name() == "player3" {
-                p.set_all_in(true);
+            ));
+            if p.name == "player2" || p.name == "player3" {
+                p.all_in = true;
             }
         });
         // main pot should be 120 /3 = 40 for each player
@@ -1496,17 +1492,17 @@ mod tests {
                      cards: _cs,
                  }| {
                     let p = game.players.get(name).unwrap();
-                    if p.get_name() == "player1" || p.get_name() == "player3" {
+                    if p.name == "player1" || p.name == "player3" {
                         assert!(
-                            p.get_bank_roll() == 70,
+                            p.bank_roll == 70,
                             "Expected non-all inplayer to split main pot (120/3) and side pot (60/2) = 70, was {}.",
-                            p.get_bank_roll()
+                            p.bank_roll
                         );
                     } else {
                         assert!(
-                            p.get_bank_roll() == 40,
+                            p.bank_roll == 40,
                             "Expected all in player to split main pot (120/3) = 40, was {}.",
-                            p.get_bank_roll()
+                            p.bank_roll
                         );
                     }
                 },

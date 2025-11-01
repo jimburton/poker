@@ -3,6 +3,8 @@ use crate::poker::betting_strategy;
 use crate::poker::card::{Card, Hand};
 use crate::poker::game::{Bet, Stage};
 use std::fmt::Debug;
+
+use super::betting_strategy::BettingStrategy;
 /// A utility struct with information about a player's hand, with the
 /// cards being made up of their hole cards and the available community cards.
 #[derive(Debug, Clone)]
@@ -52,106 +54,56 @@ pub struct RoundWinnerInfo {
     pub winnings: usize,
 }
 
-pub trait Player: Debug {
+pub trait Actor: Debug {
     /// Place a bet.
     fn place_bet(
         &mut self,
         call: usize,
         min: usize,
-        community_cards: Vec<Card>,
         stage: Stage,
-        _cycle: u8,
+        cycle: u8,
+        bank_roll: usize,
+        community_cards: Vec<Card>,
+        hole_cards: (Card, Card),
     ) -> Option<Bet>;
 
     /// Receive an update message, e.g. the status of the game or information about the
     /// winner of a round or game.
     fn update(&self, msg: &Msg) -> ();
-
-    /// Pay the required amount to enter a round.
-    fn ante_up(&mut self, ante: usize) -> Result<usize, &'static str>;
-
-    /// Accept the pair of hole cards.
-    fn accept_hole_cards(&mut self, hole_cards: Option<(Card, Card)>) -> ();
-
-    /// Provide the player's name.
-    fn get_name(&self) -> String;
-
-    /// Provide the player's bank roll.
-    fn get_bank_roll(&self) -> usize;
-
-    /// True if the player has folded.
-    fn get_folded(&self) -> bool;
-
-    /// True if the player is all in.
-    fn get_all_in(&self) -> bool;
-
-    fn set_folded(&mut self, folded: bool);
-
-    fn get_hole(&self) -> Option<(Card, Card)>;
-
-    fn set_bank_roll(&mut self, bank_roll: usize);
-
-    fn set_all_in(&mut self, all_in: bool);
 }
-
-/// The struct that represents a computer player.
-#[derive(Debug, Clone)]
-pub struct AutoPlayer {
+#[derive(Debug)]
+pub struct Player {
     pub name: String,
     pub hole: Option<(Card, Card)>,
     pub bet: usize,
     pub bank_roll: usize,
     pub all_in: bool,
     pub folded: bool,
-    pub betting_strategy: fn(usize, usize, usize, Vec<Card>, Stage, u8) -> Bet,
+    pub actor: Box<dyn Actor + 'static>,
 }
 
-/// Implementation for the Player struct.
-impl AutoPlayer {
-    /// Construct a new Player.
-    pub fn build(name: &str) -> Self {
-        AutoPlayer {
+impl Player {
+    pub fn build(name: &str, actor: impl Actor + 'static) -> Player {
+        Player {
             name: name.to_string(),
-            bank_roll: 0,
             hole: None,
             bet: 0,
+            bank_roll: 0,
             all_in: false,
             folded: false,
-            betting_strategy: betting_strategy::default_betting_strategy,
+            actor: Box::new(actor),
         }
     }
 
-    /// Adopt a new strategy.
-    pub fn set_betting_strategy(
-        &mut self,
-        strategy: fn(usize, usize, usize, Vec<Card>, Stage, u8) -> Bet,
-    ) {
-        self.betting_strategy = strategy;
-    }
-
-    ///
-    /// Buy in to the game. Player is removed by Game if they don't buy in.
-    pub fn buy_in(&mut self, buy_in: usize) -> Result<usize, &'static str> {
-        if self.bank_roll >= buy_in {
-            self.bank_roll -= buy_in;
-            Ok(buy_in)
-        } else {
-            self.folded = true;
-            Err("Can't join game.")
-        }
-    }
-
+    /// Add the hole cards to the community cards.
     fn add_hole_cards(&self, mut cards: Vec<Card>) -> Vec<Card> {
         let (c1, c2) = self.hole.unwrap();
         cards.push(c1);
         cards.push(c2);
         cards.clone()
     }
-}
 
-impl Player for AutoPlayer {
-    /// Place a bet.
-    fn place_bet(
+    pub fn place_bet(
         &mut self,
         call: usize,
         min: usize,
@@ -159,9 +111,20 @@ impl Player for AutoPlayer {
         stage: Stage,
         cycle: u8,
     ) -> Option<Bet> {
-        let strategy = self.betting_strategy;
         let cards = self.add_hole_cards(community_cards);
-        match strategy(call, min, self.bank_roll, cards, stage, cycle) {
+        let bet = self
+            .actor
+            .place_bet(
+                call,
+                min,
+                stage,
+                cycle,
+                self.bank_roll,
+                cards,
+                self.hole.unwrap(),
+            )
+            .unwrap();
+        match bet {
             Bet::Fold => Some(Bet::Fold),
             Bet::Check => Some(Bet::Check),
             Bet::Call => {
@@ -179,63 +142,68 @@ impl Player for AutoPlayer {
         }
     }
 
-    fn update(&self, msg: &Msg) {}
+    pub fn update(&self, msg: &Msg) {
+        self.actor.update(msg);
+    }
 
-    /// Buy in to a new round.
-    fn ante_up(&mut self, ante: usize) -> Result<usize, &'static str> {
-        if self.bank_roll > ante {
-            self.bank_roll -= ante;
-            Ok(ante)
+    pub fn ante_up(&mut self, blind: usize) -> Option<usize> {
+        if self.bank_roll > blind {
+            self.bank_roll -= blind;
+            Some(blind)
         } else if self.bank_roll > 0 {
-            let all_in_amount = self.bank_roll;
-            self.bank_roll = 0;
             self.all_in = true;
-            Ok(all_in_amount)
+            let bank_roll = self.bank_roll;
+            self.bank_roll = 0;
+            Some(bank_roll)
         } else {
             self.folded = true;
-            Err("Can't join round.")
+            None
+        }
+    }
+}
+
+/// The struct that represents a computer player.
+#[derive(Debug, Clone)]
+pub struct AutoActor {
+    pub betting_strategy: BettingStrategy,
+}
+
+/// Implementation for the Player struct.
+impl AutoActor {
+    /// Construct a new Player.
+    pub fn new() -> Self {
+        AutoActor {
+            betting_strategy: betting_strategy::default_betting_strategy,
         }
     }
 
-    /// Add the players hole cards to a list of cards.
-    fn accept_hole_cards(&mut self, hole_cards: Option<(Card, Card)>) -> () {
-        self.hole = hole_cards;
+    pub fn build(betting_strategy: BettingStrategy) -> Self {
+        AutoActor { betting_strategy }
+    }
+}
+
+impl Actor for AutoActor {
+    /// Place a bet.
+    fn place_bet(
+        &mut self,
+        call: usize,
+        min: usize,
+        stage: Stage,
+        cycle: u8,
+        bank_roll: usize,
+        community_cards: Vec<Card>,
+        hole_cards: (Card, Card),
+    ) -> Option<Bet> {
+        let mut cards = community_cards.clone();
+        let (h1, h2) = hole_cards;
+        cards.push(h1);
+        cards.push(h2);
+        let strategy = self.betting_strategy;
+        Some(strategy(call, min, bank_roll, cards, stage, cycle))
     }
 
-    fn get_name(&self) -> String {
-        self.name.to_string()
-    }
-
-    fn get_bank_roll(&self) -> usize {
-        self.bank_roll
-    }
-
-    /// True if the player has folded.
-    fn get_folded(&self) -> bool {
-        self.folded
-    }
-
-    /// True if the player is all in.
-    fn get_all_in(&self) -> bool {
-        self.all_in
-    }
-
-    /// True if the player is all in.
-    fn set_folded(&mut self, folded: bool) {
-        self.folded = folded;
-    }
-
-    fn get_hole(&self) -> Option<(Card, Card)> {
-        self.hole
-    }
-
-    fn set_bank_roll(&mut self, bank_roll: usize) {
-        self.bank_roll = bank_roll;
-    }
-
-    fn set_all_in(&mut self, all_in: bool) {
-        self.all_in = all_in;
-    }
+    /// Accept a message and do nothing with it.
+    fn update(&self, msg: &Msg) {}
 }
 
 #[cfg(test)]
@@ -244,7 +212,7 @@ mod tests {
 
     #[test]
     fn test_build() {
-        let player = AutoPlayer::build("James", 10_000);
+        let player = Player::build("James", AutoActor::new());
         assert!(
             player.name == "James",
             "Expected new player to have name=='James', was {}",

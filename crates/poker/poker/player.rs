@@ -4,7 +4,7 @@ use crate::poker::card::{Card, Hand};
 use crate::poker::game::{Bet, Stage};
 use std::fmt::Debug;
 
-use super::betting_strategy::BettingStrategy;
+use super::betting_strategy::{BettingStrategy, StrategyArgs};
 /// A utility struct with information about a player's hand, with the
 /// cards being made up of their hole cards and the available community cards.
 #[derive(Debug, Clone)]
@@ -199,7 +199,15 @@ impl Actor for AutoActor {
         cards.push(h1);
         cards.push(h2);
         let strategy = self.betting_strategy;
-        Some(strategy(call, min, bank_roll, cards, stage, cycle))
+        let args = StrategyArgs {
+            call,
+            min,
+            bank_roll,
+            cards,
+            stage,
+            cycle,
+        };
+        Some(strategy(args))
     }
 
     /// Accept a message and do nothing with it.

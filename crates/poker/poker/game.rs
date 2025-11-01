@@ -1,12 +1,14 @@
 use crate::poker::betting_strategy::BettingStrategy;
 use crate::poker::card::{new_deck, Card, Hand};
 use crate::poker::compare::{best_hand, compare_hands};
-use crate::poker::player::{Player, PlayerHand};
+use crate::poker::player::{Msg, Player, PlayerHand};
 use crate::poker::rotate_vector;
 use num_traits::ToPrimitive;
 use rand::rng;
 use rand::seq::SliceRandom;
 use std::collections::HashMap;
+
+use super::player::Update;
 
 /// Datatypes and functions for the game and individual rounds.
 
@@ -46,7 +48,7 @@ pub enum Stage {
 pub enum Bet {
     Fold,
     Check,
-    Call(usize),
+    Call,
     Raise(usize),
     AllIn(usize),
 }
@@ -136,6 +138,19 @@ impl Game {
         }
         let mut p = Player::build(name, self.buy_in);
         p.betting_strategy = strategy;
+        self.players.insert(name.to_string(), p);
+        self.players_order.push(name.to_string());
+        Ok(())
+    }
+
+    /// Allows a player to join the game with a given betting strategy.
+    /// The player's bank roll is set to the buy in amount.
+    pub fn join_interactive(&mut self, name: &str) -> Result<(), &'static str> {
+        if self.full() {
+            return Err("Cannot add more players.");
+        }
+        let mut p = Player::build(name, self.buy_in);
+        p.interactive = true;
         self.players.insert(name.to_string(), p);
         self.players_order.push(name.to_string());
         Ok(())
@@ -356,7 +371,14 @@ impl Game {
                     cycle += 1;
                 }
                 let ccards = self.community_cards.clone();
-                let bet = p.place_bet(call, min, ccards, self.stage, cycle);
+                let mut bet_opt: Option<Bet> = None;
+                if p.interactive {
+                    bet_opt = p.place_bet_interactive(call, min, ccards, self.stage, cycle);
+                } else {
+                    bet_opt = Some(p.place_bet(call, min, ccards, self.stage, cycle));
+                }
+
+                let bet = bet_opt.unwrap();
 
                 match bet {
                     Bet::Fold => {
@@ -369,17 +391,8 @@ impl Game {
                             panic!("Misbehaving client checked when there was an outstanding bet.");
                         }
                     }
-                    Bet::Call(n) => {
-                        if call == n {
-                            self.pot += call;
-                        } else {
-                            dbg!(
-                                "Tried to call with amount too small. Call: {}, bet: {}",
-                                call,
-                                n
-                            );
-                            p.folded = true;
-                        }
+                    Bet::Call => {
+                        self.pot += call;
                     }
                     Bet::Raise(raise) => {
                         if raise > call {
@@ -415,10 +428,28 @@ impl Game {
                         self.side_pots.push(new_side_pot);
                     }
                 }
+                let update = Msg::MsgBet(Update {
+                    player: p.name.clone(),
+                    bet,
+                });
+                self.players.iter().for_each(|(_name, p)| {
+                    if p.interactive {
+                        p.update(&update);
+                    }
+                });
+
                 // ensure 'current' wraps correctly.
                 current = (current + 1) % players.len();
             }
         }
+    }
+
+    fn update_interactive_players(&self, update: &Msg) {
+        self.players.iter().for_each(|(_name, p)| {
+            if p.interactive {
+                p.update(update);
+            }
+        });
     }
 
     /// Determines the winner(s) of the round.
@@ -999,7 +1030,7 @@ mod tests {
             } else if call == 0 {
                 Bet::Raise(min)
             } else {
-                Bet::Call(call)
+                Bet::Call
             }
         }
         p2.set_betting_strategy(strategy);
@@ -1034,7 +1065,7 @@ mod tests {
         } else if call == 0 {
             Bet::Raise(min)
         } else {
-            Bet::Call(call)
+            Bet::Call
         }
     }
 

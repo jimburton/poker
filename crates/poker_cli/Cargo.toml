@@ -1,0 +1,17 @@
+[package]
+name = "poker_cli"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "poker_cli"
+test = false
+path = "main.rs"
+
+[dependencies]
+num-derive = "0.4.2"
+num-traits = "0.2.19"
+rand = "0.9.2"
+
+poker = { path = "../poker" }
+

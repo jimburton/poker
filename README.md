@@ -89,6 +89,5 @@ standard in various ways.
   
 # TODO
 
-+ Make game API more functional, with the "stage" functions having the
-  signature `Game -> Game`.
++ Refactor API to be more functional.
 + Add interactive players.

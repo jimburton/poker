@@ -12,6 +12,18 @@ pub struct PlayerHand {
     pub cards: Vec<Card>,
 }
 
+#[derive(Debug, Clone)]
+pub struct Update {
+    pub player: String,
+    pub bet: Bet,
+}
+
+#[derive(Debug, Clone)]
+pub enum Msg {
+    MsgBet(Update),
+    MsgMisc(String),
+}
+
 /// The struct that represents a player.
 #[derive(Debug, Clone)]
 pub struct Player {
@@ -22,6 +34,7 @@ pub struct Player {
     pub all_in: bool,
     pub folded: bool,
     pub betting_strategy: fn(usize, usize, usize, Vec<Card>, Stage, u8) -> Bet,
+    pub interactive: bool,
 }
 
 /// Implementation for the Player struct.
@@ -36,6 +49,7 @@ impl Player {
             all_in: false,
             folded: false,
             betting_strategy: betting_strategy::default_betting_strategy,
+            interactive: false,
         }
     }
 
@@ -45,6 +59,54 @@ impl Player {
         strategy: fn(usize, usize, usize, Vec<Card>, Stage, u8) -> Bet,
     ) {
         self.betting_strategy = strategy;
+    }
+
+    pub fn place_bet_interactive(
+        &mut self,
+        call: usize,
+        min: usize,
+        community_cards: Vec<Card>,
+        stage: Stage,
+        _cycle: u8,
+    ) -> Option<Bet> {
+        println!("It's your turn to place a bet in the {:?}.", stage);
+        println!(
+            "Hole cards:\n{:?}\n{:?}",
+            self.hole.unwrap().0,
+            self.hole.unwrap().1
+        );
+        if !community_cards.is_empty() {
+            println!("Community cards:",);
+            community_cards.iter().for_each(|c| println!("{:?}", c));
+        }
+        println!("The bet stands at {} (minimum amount to bet {})", call, min);
+        println!("Bank roll: {}", self.bank_roll);
+        println!("Enter R(aise) <amount>, C(all), Ch(eck), A(ll in), F(old)");
+        let mut input = String::new(); // A mutable String to hold the user input
+        std::io::stdin()
+            .read_line(&mut input) // Read input into the `input` variable
+            .expect("Failed to read line");
+
+        if let Some(bet) = parse_bet_string(input, self.bank_roll) {
+            match bet {
+                Bet::Fold => Some(Bet::Fold),
+                Bet::Check => Some(Bet::Check),
+                Bet::Call => {
+                    self.bank_roll -= call;
+                    Some(Bet::Call)
+                }
+                Bet::Raise(n) => {
+                    self.bank_roll -= n;
+                    Some(Bet::Raise(n))
+                }
+                Bet::AllIn(n) => {
+                    self.bank_roll = 0;
+                    Some(Bet::AllIn(n))
+                }
+            }
+        } else {
+            None
+        }
     }
 
     /// Place a bet.
@@ -61,9 +123,9 @@ impl Player {
         match strategy(call, min, self.bank_roll, cards, stage, cycle) {
             Bet::Fold => Bet::Fold,
             Bet::Check => Bet::Check,
-            Bet::Call(n) => {
-                self.bank_roll -= n;
-                Bet::Call(n)
+            Bet::Call => {
+                self.bank_roll -= call;
+                Bet::Call
             }
             Bet::Raise(n) => {
                 self.bank_roll -= n;
@@ -72,6 +134,20 @@ impl Player {
             Bet::AllIn(n) => {
                 self.bank_roll = 0;
                 Bet::AllIn(n)
+            }
+        }
+    }
+
+    pub fn update(&self, msg: &Msg) {
+        match msg {
+            Msg::MsgBet(update) => {
+                println!(
+                    "Update: Player {} made bet: {:?}",
+                    update.player, update.bet
+                );
+            }
+            Msg::MsgMisc(contents) => {
+                println!("Update: {}", contents,);
             }
         }
     }
@@ -109,6 +185,25 @@ impl Player {
         } else {
             self.folded = true;
             Err("Can't join round.")
+        }
+    }
+}
+
+fn parse_bet_string(input: String, all_in_amount: usize) -> Option<Bet> {
+    let parts: Vec<&str> = input.trim().split(" ").collect();
+    if parts.len() == 2 {
+        let amount: usize = parts[1]
+            .trim() // Remove whitespace
+            .parse() // Convert to i32
+            .expect("Please enter a valid number");
+        Some(Bet::Raise(amount))
+    } else {
+        match parts[0] {
+            "C" => Some(Bet::Call),
+            "Ch" => Some(Bet::Check),
+            "F" => Some(Bet::Fold),
+            "A" => Some(Bet::AllIn(all_in_amount)),
+            _ => None,
         }
     }
 }

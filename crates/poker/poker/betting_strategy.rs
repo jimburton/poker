@@ -29,7 +29,7 @@ pub fn default_betting_strategy(
     } else if call == 0 {
         Bet::Check
     } else {
-        Bet::Call(call)
+        Bet::Call
     }
 }
 
@@ -54,7 +54,7 @@ pub fn modest_betting_strategy(
     } else if call == 0 {
         Bet::Raise(min)
     } else {
-        Bet::Call(call)
+        Bet::Call
     }
 }
 
@@ -92,7 +92,7 @@ pub fn six_max(
             // raise twice in a round
             Bet::Raise(bet)
         } else {
-            Bet::Call(call)
+            Bet::Call
         }
     }
     if let Stage::PreFlop = stage {

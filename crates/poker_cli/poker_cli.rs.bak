@@ -1,0 +1,7 @@
+pub mod poker_cli;
+
+use poker::game::Game;
+
+pub fn start_one_player(name: &str) {
+    let game = Game::Game();
+}

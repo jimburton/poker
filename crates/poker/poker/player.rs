@@ -211,7 +211,7 @@ impl Actor for AutoActor {
     }
 
     /// Accept a message and do nothing with it.
-    fn update(&self, msg: &Msg) {}
+    fn update(&self, _msg: &Msg) {}
 }
 
 #[cfg(test)]

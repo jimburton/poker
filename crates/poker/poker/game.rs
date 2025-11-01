@@ -1,9 +1,6 @@
-use crate::poker::betting_strategy::BettingStrategy;
-use crate::poker::card::{new_deck, Card, Hand};
+use crate::poker::card::{new_deck, Card};
 use crate::poker::compare::{best_hand, compare_hands};
-use crate::poker::player::{
-    Actor, AutoActor, Msg, PlayerHand, RoundWinnerInfo, Winner, WinnerInfo,
-};
+use crate::poker::player::{Msg, PlayerHand, Winner, WinnerInfo};
 use crate::poker::rotate_vector;
 use num_traits::ToPrimitive;
 use rand::rng;
@@ -338,8 +335,7 @@ impl Game {
                     cycle += 1;
                 }
                 let ccards = self.community_cards.clone();
-                let mut bet_opt: Option<Bet> = None;
-                bet_opt = p.place_bet(call, min, ccards, self.stage, cycle);
+                let bet_opt = p.place_bet(call, min, ccards, self.stage, cycle);
 
                 let bet = bet_opt.unwrap();
 
@@ -876,7 +872,11 @@ pub fn new_game(buy_in: usize, num_players: u8) -> Game {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::poker::card::{Card, Hand, Rank, Suit};
+    use crate::poker::{
+        betting_strategy::StrategyArgs,
+        card::{Card, Hand, Rank, Suit},
+        player::AutoActor,
+    };
 
     #[test]
     fn test_build() {
@@ -893,7 +893,7 @@ mod tests {
         let mut game = Game::build(10, 2);
         game.join(Player::build("player1", AutoActor::new()));
         let _ = game.join(Player::build("player2", AutoActor::new()));
-        if let Err(e) = game.join(Player::new("player3", AutoActor::new())) {
+        if let Err(e) = game.join(Player::build("player3", AutoActor::new())) {
             assert!(
                 e == "Cannot add more players.",
                 "Expected 'Cannot add more players.', was {}",
@@ -907,15 +907,15 @@ mod tests {
     #[test]
     fn test_players_receive_bank_roll() {
         let mut game = Game::build(20, 2);
-        let _ = game.join(Player::new("player1", AutoActor::new()));
-        let _ = game.join(Player::new("player2", AutoActor::new()));
+        let _ = game.join(Player::build("player1", AutoActor::new()));
+        let _ = game.join(Player::build("player2", AutoActor::new()));
         // each player should receive 100 x big blind
         game.players.values().for_each(|p| {
             assert!(
-                p.get_bank_roll() == 100 * 20,
+                p.bank_roll == 100 * 20,
                 "Expected new player to receive {}, was {}",
                 100 * 20,
-                p.get_bank_roll()
+                p.bank_roll
             )
         });
     }
@@ -923,8 +923,8 @@ mod tests {
     #[test]
     fn test_deal_hole_cards() {
         let mut game = Game::build(20, 2);
-        let _ = game.join(Player::new("player1", AutoActor::new()));
-        let _ = game.join(Player::new("player2", AutoActor::new()));
+        let _ = game.join(Player::build("player1", AutoActor::new()));
+        let _ = game.join(Player::build("player2", AutoActor::new()));
         game.deal_hole_cards();
         assert!(
             game.deck.len() == 48,
@@ -952,45 +952,14 @@ mod tests {
     #[test]
     fn test_place_bets_default_strategy() {
         let mut game = Game::build(20, 2);
-        let _ = game.join(Player::new("player1", AutoActor::new()));
-        let _ = game.join(Player::new("player2", AutoActor::new()));
+        let _ = game.join(Player::build("player1", AutoActor::new()));
+        let _ = game.join(Player::build("player2", AutoActor::build(strategy)));
         game.order_players();
         game.deal_hole_cards();
 
         // Test with players that don't place bets.
         // Both players will use default strategy and check.
-        game.place_bets();
-        assert!(game.pot == 0, "Expected game.pot to be 0, was {}", game.pot);
-        game.players.iter().for_each(|(_name, p)| {
-            assert!(
-                p.get_bank_roll() == 2000,
-                "Expected p.bank_roll to be 2000, was {}.",
-                p.get_bank_roll()
-            );
-        });
-
-        // Test with a player who bets once.
-        let p2 = game.players.get_mut("player2").unwrap();
-        // make a strategy that will place a bet if the call is zero
-        fn strategy(
-            call: usize,
-            min: usize,
-            bank_roll: usize,
-            _cards: Vec<Card>,
-            _stage: Stage,
-            _cycle: u8,
-        ) -> Bet {
-            if bank_roll == 0 {
-                Bet::Fold
-            } else if bank_roll <= call {
-                Bet::AllIn(bank_roll)
-            } else if call == 0 {
-                Bet::Raise(min)
-            } else {
-                Bet::Call
-            }
-        }
-        p2.set_betting_strategy(strategy);
+        // The pot should contain only the blinds.
         game.place_bets();
         assert!(
             game.pot == 40,
@@ -999,28 +968,48 @@ mod tests {
         );
         game.players.iter().for_each(|(_name, p)| {
             assert!(
-                p.get_bank_roll() == 1980,
+                p.bank_roll == 1980,
                 "Expected p.bank_roll to be 1980, was {}.",
-                p.get_bank_roll()
+                p.bank_roll
+            );
+        });
+
+        // Test with a player who bets once.
+        // make a strategy that will place a bet if the call is zero
+        fn strategy(args: StrategyArgs) -> Bet {
+            if args.bank_roll == 0 {
+                Bet::Fold
+            } else if args.bank_roll <= args.call {
+                Bet::AllIn(args.bank_roll)
+            } else if args.call == 0 {
+                Bet::Raise(args.min)
+            } else {
+                Bet::Call
+            }
+        }
+        game.place_bets();
+        assert!(
+            game.pot == 80,
+            "Expected game.pot to be 80, was {}",
+            game.pot
+        );
+        game.players.iter().for_each(|(_name, p)| {
+            assert!(
+                p.bank_roll == 1960,
+                "Expected p.bank_roll to be 1960, was {}.",
+                p.bank_roll
             );
         });
     }
 
     // A betting strategy that will place a bet if the call is zero
-    fn test_strategy(
-        call: usize,
-        min: usize,
-        bank_roll: usize,
-        _cards: Vec<Card>,
-        _stage: Stage,
-        _cycle: u8,
-    ) -> Bet {
-        if bank_roll == 0 {
+    fn test_strategy(args: StrategyArgs) -> Bet {
+        if args.bank_roll == 0 {
             Bet::Fold
-        } else if bank_roll <= call {
-            Bet::AllIn(bank_roll)
-        } else if call == 0 {
-            Bet::Raise(min)
+        } else if args.bank_roll <= args.call {
+            Bet::AllIn(args.bank_roll)
+        } else if args.call == 0 {
+            Bet::Raise(args.min)
         } else {
             Bet::Call
         }
@@ -1030,14 +1019,10 @@ mod tests {
     fn test_place_bets_modest_strategy() {
         let mut game = Game::build(20, 2);
         let _ = game.join(Player::build("player1", AutoActor::new()));
-        let _ = game.join(Player::build("player2", AutoActor::new()));
+        let _ = game.join(Player::build("player2", AutoActor::build(test_strategy)));
         game.order_players();
         game.deal_hole_cards();
 
-        // Test with a player who bets once.
-        let p2 = game.players.get_mut("player2").unwrap();
-
-        p2.set_betting_strategy(test_strategy);
         game.place_bets();
         assert!(
             game.pot == 40,
@@ -1058,17 +1043,14 @@ mod tests {
         let mut game = Game::build(20, 3);
         let _ = game.join(Player::build("player1", AutoActor::new()));
         let _ = game.join(Player::build("player2", AutoActor::new()));
-        let _ = game.join(Player::build("player3", AutoActor::new()));
+        let _ = game.join(Player::build("player3", AutoActor::build(test_strategy)));
         game.order_players();
         game.deal_hole_cards();
 
         // Test with a player who bets once and one which is folded.
 
         let p2 = game.players.get_mut("player2").unwrap();
-        p2.set_folded(true);
-
-        let p3 = game.players.get_mut("player3").unwrap();
-        p3.set_betting_strategy(test_strategy);
+        p2.folded = true;
 
         game.place_bets();
         assert!(
@@ -1097,7 +1079,7 @@ mod tests {
     fn test_deal_flop() {
         let mut game = Game::build(20, 2);
         let _ = game.join(Player::build("player1", AutoActor::new()));
-        let _ = game.join(Plater::build("player2", AutoActor::new()));
+        let _ = game.join(Player::build("player2", AutoActor::new()));
         game.deal_hole_cards();
         game.place_bets();
         game.deal_flop();
@@ -1212,7 +1194,7 @@ mod tests {
             if name == "player1" {
                 p.hole = p1_hole;
             } else {
-                p.hole_cards = p2_hole;
+                p.hole = p2_hole;
             }
         });
 
@@ -1292,7 +1274,7 @@ mod tests {
             if name == "player1" {
                 p.hole = p1_hole;
             } else {
-                p.hole_cards = p2_hole;
+                p.hole = p2_hole;
             }
         });
 

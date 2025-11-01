@@ -1,12 +1,8 @@
+pub mod player;
 use poker::poker::game::Game;
 
-pub fn start_one_player(name: &str) {
-    let game = Game::build(150, 6);
-}
-
-// Define functions or structs here
-pub fn run_stuff() {
-    println!("Running code from the 'more_bin_code' module.");
+pub fn start_one_player(big_blind: usize, num_players: u8) -> Game {
+    Game::build(big_blind, num_players)
 }
 
 // You can also declare sub-modules here if you have more files in this directory.

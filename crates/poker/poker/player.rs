@@ -2,7 +2,7 @@
 use crate::poker::betting_strategy;
 use crate::poker::card::{Card, Hand};
 use crate::poker::game::{Bet, Stage};
-
+use std::fmt::Debug;
 /// A utility struct with information about a player's hand, with the
 /// cards being made up of their hole cards and the available community cards.
 #[derive(Debug, Clone)]
@@ -22,11 +22,81 @@ pub struct Update {
 pub enum Msg {
     MsgBet(Update),
     MsgMisc(String),
+    MsgWinner(Winner),
 }
 
-/// The struct that represents a player.
+/// Enum for representing the winner(s) of a round.
 #[derive(Debug, Clone)]
-pub struct Player {
+pub enum Winner {
+    Winner {
+        name: String,
+        hand: Hand,
+        cards: Vec<Card>,
+    },
+    Draw(Vec<PlayerHand>),
+}
+
+/// Struct for the winner of the game
+#[derive(Debug)]
+pub struct WinnerInfo {
+    pub name: String,
+    pub num_rounds: usize,
+    pub winnings: usize,
+}
+
+/// Struct for the winner of a round
+#[derive(Debug)]
+pub struct RoundWinnerInfo {
+    pub name: String,
+    pub hand: Hand,
+    pub winnings: usize,
+}
+
+pub trait Player: Debug {
+    /// Place a bet.
+    fn place_bet(
+        &mut self,
+        call: usize,
+        min: usize,
+        community_cards: Vec<Card>,
+        stage: Stage,
+        _cycle: u8,
+    ) -> Option<Bet>;
+
+    /// Receive an update message, e.g. the status of the game or information about the
+    /// winner of a round or game.
+    fn update(&self, msg: &Msg) -> ();
+
+    /// Pay the required amount to enter a round.
+    fn ante_up(&mut self, ante: usize) -> Result<usize, &'static str>;
+
+    /// Accept the pair of hole cards.
+    fn accept_hole_cards(&mut self, hole_cards: Option<(Card, Card)>) -> ();
+
+    /// Provide the player's name.
+    fn get_name(&self) -> String;
+
+    /// Provide the player's bank roll.
+    fn get_bank_roll(&self) -> usize;
+
+    /// True if the player has folded.
+    fn get_folded(&self) -> bool;
+
+    /// True if the player is all in.
+    fn get_all_in(&self) -> bool;
+
+    fn set_folded(&mut self, folded: bool);
+
+    fn get_hole(&self) -> Option<(Card, Card)>;
+
+    fn set_bank_roll(&mut self, bank_roll: usize);
+
+    fn set_all_in(&mut self, all_in: bool);
+}
+
+/// The struct that represents a computer player.
+#[derive(Debug, Clone)]
+pub struct AutoPlayer {
     pub name: String,
     pub hole: Option<(Card, Card)>,
     pub bet: usize,
@@ -34,22 +104,20 @@ pub struct Player {
     pub all_in: bool,
     pub folded: bool,
     pub betting_strategy: fn(usize, usize, usize, Vec<Card>, Stage, u8) -> Bet,
-    pub interactive: bool,
 }
 
 /// Implementation for the Player struct.
-impl Player {
+impl AutoPlayer {
     /// Construct a new Player.
-    pub fn build(name: &str, bank_roll: usize) -> Self {
-        Player {
+    pub fn build(name: &str) -> Self {
+        AutoPlayer {
             name: name.to_string(),
-            bank_roll,
+            bank_roll: 0,
             hole: None,
             bet: 0,
             all_in: false,
             folded: false,
             betting_strategy: betting_strategy::default_betting_strategy,
-            interactive: false,
         }
     }
 
@@ -59,105 +127,6 @@ impl Player {
         strategy: fn(usize, usize, usize, Vec<Card>, Stage, u8) -> Bet,
     ) {
         self.betting_strategy = strategy;
-    }
-
-    pub fn place_bet_interactive(
-        &mut self,
-        call: usize,
-        min: usize,
-        community_cards: Vec<Card>,
-        stage: Stage,
-        _cycle: u8,
-    ) -> Option<Bet> {
-        println!("It's your turn to place a bet in the {:?}.", stage);
-        println!(
-            "Hole cards:\n{:?}\n{:?}",
-            self.hole.unwrap().0,
-            self.hole.unwrap().1
-        );
-        if !community_cards.is_empty() {
-            println!("Community cards:",);
-            community_cards.iter().for_each(|c| println!("{:?}", c));
-        }
-        println!("The bet stands at {} (minimum amount to bet {})", call, min);
-        println!("Bank roll: {}", self.bank_roll);
-        println!("Enter R(aise) <amount>, C(all), Ch(eck), A(ll in), F(old)");
-        let mut input = String::new(); // A mutable String to hold the user input
-        std::io::stdin()
-            .read_line(&mut input) // Read input into the `input` variable
-            .expect("Failed to read line");
-
-        if let Some(bet) = parse_bet_string(input, self.bank_roll) {
-            match bet {
-                Bet::Fold => Some(Bet::Fold),
-                Bet::Check => Some(Bet::Check),
-                Bet::Call => {
-                    self.bank_roll -= call;
-                    Some(Bet::Call)
-                }
-                Bet::Raise(n) => {
-                    self.bank_roll -= n;
-                    Some(Bet::Raise(n))
-                }
-                Bet::AllIn(n) => {
-                    self.bank_roll = 0;
-                    Some(Bet::AllIn(n))
-                }
-            }
-        } else {
-            None
-        }
-    }
-
-    /// Place a bet.
-    pub fn place_bet(
-        &mut self,
-        call: usize,
-        min: usize,
-        community_cards: Vec<Card>,
-        stage: Stage,
-        cycle: u8,
-    ) -> Bet {
-        let strategy = self.betting_strategy;
-        let cards = self.add_hole_cards(community_cards);
-        match strategy(call, min, self.bank_roll, cards, stage, cycle) {
-            Bet::Fold => Bet::Fold,
-            Bet::Check => Bet::Check,
-            Bet::Call => {
-                self.bank_roll -= call;
-                Bet::Call
-            }
-            Bet::Raise(n) => {
-                self.bank_roll -= n;
-                Bet::Raise(n)
-            }
-            Bet::AllIn(n) => {
-                self.bank_roll = 0;
-                Bet::AllIn(n)
-            }
-        }
-    }
-
-    pub fn update(&self, msg: &Msg) {
-        match msg {
-            Msg::MsgBet(update) => {
-                println!(
-                    "Update: Player {} made bet: {:?}",
-                    update.player, update.bet
-                );
-            }
-            Msg::MsgMisc(contents) => {
-                println!("Update: {}", contents,);
-            }
-        }
-    }
-
-    /// Add the players hole cards to a list of cards.
-    fn add_hole_cards(&self, mut cards: Vec<Card>) -> Vec<Card> {
-        let (h1, h2) = self.hole.unwrap();
-        cards.push(h1);
-        cards.push(h2);
-        cards.clone()
     }
 
     ///
@@ -171,9 +140,49 @@ impl Player {
             Err("Can't join game.")
         }
     }
-    ///
+
+    fn add_hole_cards(&self, mut cards: Vec<Card>) -> Vec<Card> {
+        let (c1, c2) = self.hole.unwrap();
+        cards.push(c1);
+        cards.push(c2);
+        cards.clone()
+    }
+}
+
+impl Player for AutoPlayer {
+    /// Place a bet.
+    fn place_bet(
+        &mut self,
+        call: usize,
+        min: usize,
+        community_cards: Vec<Card>,
+        stage: Stage,
+        cycle: u8,
+    ) -> Option<Bet> {
+        let strategy = self.betting_strategy;
+        let cards = self.add_hole_cards(community_cards);
+        match strategy(call, min, self.bank_roll, cards, stage, cycle) {
+            Bet::Fold => Some(Bet::Fold),
+            Bet::Check => Some(Bet::Check),
+            Bet::Call => {
+                self.bank_roll -= call;
+                Some(Bet::Call)
+            }
+            Bet::Raise(n) => {
+                self.bank_roll -= n;
+                Some(Bet::Raise(n))
+            }
+            Bet::AllIn(n) => {
+                self.bank_roll = 0;
+                Some(Bet::AllIn(n))
+            }
+        }
+    }
+
+    fn update(&self, msg: &Msg) {}
+
     /// Buy in to a new round.
-    pub fn ante_up(&mut self, ante: usize) -> Result<usize, &'static str> {
+    fn ante_up(&mut self, ante: usize) -> Result<usize, &'static str> {
         if self.bank_roll > ante {
             self.bank_roll -= ante;
             Ok(ante)
@@ -187,24 +196,45 @@ impl Player {
             Err("Can't join round.")
         }
     }
-}
 
-fn parse_bet_string(input: String, all_in_amount: usize) -> Option<Bet> {
-    let parts: Vec<&str> = input.trim().split(" ").collect();
-    if parts.len() == 2 {
-        let amount: usize = parts[1]
-            .trim() // Remove whitespace
-            .parse() // Convert to i32
-            .expect("Please enter a valid number");
-        Some(Bet::Raise(amount))
-    } else {
-        match parts[0] {
-            "C" => Some(Bet::Call),
-            "Ch" => Some(Bet::Check),
-            "F" => Some(Bet::Fold),
-            "A" => Some(Bet::AllIn(all_in_amount)),
-            _ => None,
-        }
+    /// Add the players hole cards to a list of cards.
+    fn accept_hole_cards(&mut self, hole_cards: Option<(Card, Card)>) -> () {
+        self.hole = hole_cards;
+    }
+
+    fn get_name(&self) -> String {
+        self.name.to_string()
+    }
+
+    fn get_bank_roll(&self) -> usize {
+        self.bank_roll
+    }
+
+    /// True if the player has folded.
+    fn get_folded(&self) -> bool {
+        self.folded
+    }
+
+    /// True if the player is all in.
+    fn get_all_in(&self) -> bool {
+        self.all_in
+    }
+
+    /// True if the player is all in.
+    fn set_folded(&mut self, folded: bool) {
+        self.folded = folded;
+    }
+
+    fn get_hole(&self) -> Option<(Card, Card)> {
+        self.hole
+    }
+
+    fn set_bank_roll(&mut self, bank_roll: usize) {
+        self.bank_roll = bank_roll;
+    }
+
+    fn set_all_in(&mut self, all_in: bool) {
+        self.all_in = all_in;
     }
 }
 
@@ -214,7 +244,7 @@ mod tests {
 
     #[test]
     fn test_build() {
-        let player = Player::build("James", 10_000);
+        let player = AutoPlayer::build("James", 10_000);
         assert!(
             player.name == "James",
             "Expected new player to have name=='James', was {}",

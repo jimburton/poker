@@ -5,6 +5,7 @@ use crate::poker::game::{Bet, Stage};
 use super::compare::best_hand;
 use super::sequence::same_suit;
 
+/// Struct to carry the args needed by betting strategies,
 #[derive(Debug, Clone)]
 pub struct StrategyArgs {
     pub call: usize,

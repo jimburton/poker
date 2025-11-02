@@ -5,29 +5,28 @@ use crate::poker::game::{Bet, Stage};
 use std::fmt::{self, Debug, Display};
 
 use super::betting_strategy::{BettingStrategy, StrategyArgs};
-/// A utility struct with information about a player's hand, with the
-/// cards being made up of their hole cards and the available community cards.
 #[derive(Debug, Clone)]
 pub struct PlayerHand {
     pub name: String,
-    pub best_hand: Hand,
+    pub hand: Hand,
     pub cards: Vec<Card>,
 }
-
+/// Messages to send to players.
 #[derive(Debug, Clone)]
 pub enum Msg {
-    Round(Stage),
     Bet { player: String, bet: Bet },
     Misc(String),
-    Winner(Winner),
+    Game(Winner),
+    Round(Stage),
 }
+/// Implementation of Display trait for Msg.
 impl Display for Msg {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Msg::Round(stage) => write!(f, "{}", stage),
             Msg::Bet { player, bet } => write!(f, "{} made bet {}", player, bet),
             Msg::Misc(msg) => write!(f, "{}", msg),
-            Msg::Winner(winner) => write!(f, "Winner: {}", winner),
+            Msg::Game(winner) => write!(f, "{}", winner),
+            Msg::Round(stage) => write!(f, "{}", stage),
         }
     }
 }
@@ -35,21 +34,20 @@ impl Display for Msg {
 /// Enum for representing the winner(s) of a round.
 #[derive(Debug, Clone)]
 pub enum Winner {
-    Winner {
-        name: String,
-        hand: Hand,
-        cards: Vec<Card>,
-    },
+    Winner(PlayerHand),
     Draw(Vec<PlayerHand>),
 }
+/// Implementation of Display trait for Winner.
 impl Display for Winner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Winner::Winner { name, hand, .. } => write!(f, "Winner: {} ({})", name, hand),
+            Winner::Winner(PlayerHand { name, hand, .. }) => {
+                write!(f, "Winner: {} ({})", name, hand)
+            }
             Winner::Draw(hands) => {
                 let names = hands
                     .iter()
-                    .map(|phand| format!("{} ({})", phand.name, phand.best_hand))
+                    .map(|phand| format!("{} ({})", phand.name, phand.hand))
                     .collect::<Vec<String>>()
                     .join(", ");
                 write!(f, "Draw: {}", names)
@@ -58,36 +56,21 @@ impl Display for Winner {
     }
 }
 
-/// Struct for the winner of the game
-#[derive(Debug)]
+/// Enum for information about winners.
+#[derive(Debug, Clone)]
 pub struct WinnerInfo {
     pub name: String,
     pub num_rounds: usize,
-    pub winnings: usize,
+    pub hand: Hand,
 }
+/// Implementation of Display trait for WinnerInfo.
 impl Display for WinnerInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{} won the game with {} winnings after {} rounds",
-            self.name, self.winnings, self.num_rounds
-        )
+        write!(f, "{} won with {}", self.name, self.hand)
     }
 }
-
-/// Struct for the winner of a round
-#[derive(Debug)]
-pub struct RoundWinnerInfo {
-    pub name: String,
-    pub hand: Hand,
-    pub winnings: usize,
-}
-impl Display for RoundWinnerInfo {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} won {} with {}", self.name, self.winnings, self.hand)
-    }
-}
-
+/// The Actor trait is the component part of players which places bets
+/// and responds to messages.
 pub trait Actor: Debug {
     /// Place a bet.
     fn place_bet(
@@ -105,6 +88,7 @@ pub trait Actor: Debug {
     /// winner of a round or game.
     fn update(&self, msg: &Msg) -> ();
 }
+/// The Player struct.
 #[derive(Debug)]
 pub struct Player {
     pub name: String,
@@ -115,8 +99,9 @@ pub struct Player {
     pub folded: bool,
     pub actor: Box<dyn Actor + 'static>,
 }
-
+/// Implementation of Player.
 impl Player {
+    /// Construct a Player instance with the supplied actor.
     pub fn build(name: &str, actor: impl Actor + 'static) -> Player {
         Player {
             name: name.to_string(),
@@ -128,7 +113,7 @@ impl Player {
             actor: Box::new(actor),
         }
     }
-
+    /// Place a bet by asking the actor to do it.
     pub fn place_bet(
         &mut self,
         call: usize,
@@ -170,10 +155,12 @@ impl Player {
         }
     }
 
+    /// Respond to an incoming message by asking the actor to do it.
     pub fn update(&self, msg: &Msg) {
         self.actor.update(msg);
     }
 
+    /// Pay the required amount to join a round.
     pub fn ante_up(&mut self, blind: usize) -> Option<usize> {
         if self.bank_roll > blind {
             self.bank_roll -= blind;
@@ -190,28 +177,28 @@ impl Player {
     }
 }
 
-/// The struct that represents a computer player.
+/// The actor for a computer player.
 #[derive(Debug, Clone)]
 pub struct AutoActor {
     pub betting_strategy: BettingStrategy,
 }
 
-/// Implementation for the Player struct.
+/// Implementation for AutoActor.
 impl AutoActor {
-    /// Construct a new Player.
+    /// Construct a new Player instance.
     pub fn new() -> Self {
         AutoActor {
             betting_strategy: betting_strategy::default_betting_strategy,
         }
     }
-
+    /// Construct a new Player instance wit the supplied strategy.
     pub fn build(betting_strategy: BettingStrategy) -> Self {
         AutoActor { betting_strategy }
     }
 }
-
+/// Implementation of the Actor trait for AutoActor.
 impl Actor for AutoActor {
-    /// Place a bet.
+    /// Place a bet using the betting strategy.
     fn place_bet(
         &mut self,
         call: usize,

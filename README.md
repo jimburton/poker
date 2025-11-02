@@ -1,6 +1,6 @@
-# Texas Hold 'Em in rust
+# Texas Hold 'Em in Rust
 
-An exercise in learning rust. The code is organised as follows:
+An exercise in learning Rust. The code is organised as follows:
 
 + the game logic in a library,
 + a server that uses the library and provides an API for clients,

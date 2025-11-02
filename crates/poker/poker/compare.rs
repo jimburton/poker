@@ -41,171 +41,106 @@ pub fn best_hand(cards: &Vec<Card>) -> Hand {
 /// Compare two hands, resulting in a winner or a draw.
 pub fn compare_hands(hand_a: PlayerHand, hand_b: PlayerHand) -> Winner {
     // Placeholder logic for comparison: returns winner based on hand variant order
-    let (name_a, h_a, c_a) = (hand_a.name, hand_a.best_hand, hand_a.cards);
-    let (name_b, h_b, c_b) = (hand_b.name, hand_b.best_hand, hand_b.cards);
+    let (name_a, h_a, c_a) = (hand_a.name, hand_a.hand, hand_a.cards);
+    let (name_b, h_b, c_b) = (hand_b.name, hand_b.hand, hand_b.cards);
 
     if h_a > h_b {
-        Winner::Winner {
+        Winner::Winner(PlayerHand {
             name: name_a,
             hand: h_a,
             cards: c_a,
-        }
+        })
     } else if h_b > h_a {
-        Winner::Winner {
+        Winner::Winner(PlayerHand {
             name: name_b,
             hand: h_b,
             cards: c_b,
-        }
+        })
     } else {
         match (h_a, h_b) {
             // If two straight flushes have the same highest card, it's a draw
             (Hand::StraightFlush(_r1), Hand::StraightFlush(_r2)) => Winner::Draw(vec![
                 PlayerHand {
                     name: name_a,
-                    best_hand: h_a,
+                    hand: h_a,
                     cards: c_a,
                 },
                 PlayerHand {
                     name: name_b,
-                    best_hand: h_b,
-                    cards: c_b,
-                },
-            ]),
-            // No draw for two four of a kinds
-            (Hand::FourOfAKind(r1), Hand::FourOfAKind(r2)) => {
-                if r1 > r2 {
-                    Winner::Winner {
-                        name: name_a,
-                        hand: h_a,
-                        cards: c_a,
-                    }
-                } else {
-                    Winner::Winner {
-                        name: name_b,
-                        hand: h_b,
-                        cards: c_b,
-                    }
-                }
-            }
-            // For two full houses, the highest three of a kind wins, or if they are
-            // the same rank, the highest pair wins. If they are the same it's a draw.
-            (Hand::FullHouse(r1, r3), Hand::FullHouse(r2, r4)) => match r1.cmp(&r2) {
-                Ordering::Greater => Winner::Winner {
-                    name: name_a,
-                    hand: h_a,
-                    cards: c_a,
-                },
-                Ordering::Less => Winner::Winner {
-                    name: name_b,
                     hand: h_b,
                     cards: c_b,
                 },
-                Ordering::Equal => match r3.cmp(&r4) {
-                    Ordering::Greater => Winner::Winner {
+            ]),
+            // No draw for two 4oK
+            (Hand::FourOfAKind(r1), Hand::FourOfAKind(r2)) => {
+                if r1 > r2 {
+                    Winner::Winner(PlayerHand {
                         name: name_a,
                         hand: h_a,
                         cards: c_a,
-                    },
-                    Ordering::Less => Winner::Winner {
+                    })
+                } else {
+                    Winner::Winner(PlayerHand {
                         name: name_b,
                         hand: h_b,
                         cards: c_b,
-                    },
+                    })
+                }
+            }
+            // For two full houses the highest 3oK wins, or if they are
+            // the same rank, the highest pair wins. If the pairs are the same it's a draw.
+            (Hand::FullHouse(r1, r3), Hand::FullHouse(r2, r4)) => match r1.cmp(&r2) {
+                Ordering::Greater => Winner::Winner(PlayerHand {
+                    name: name_a,
+                    hand: h_a,
+                    cards: c_a,
+                }),
+                Ordering::Less => Winner::Winner(PlayerHand {
+                    name: name_b,
+                    hand: h_b,
+                    cards: c_b,
+                }),
+                Ordering::Equal => match r3.cmp(&r4) {
+                    Ordering::Greater => Winner::Winner(PlayerHand {
+                        name: name_a,
+                        hand: h_a,
+                        cards: c_a,
+                    }),
+                    Ordering::Less => Winner::Winner(PlayerHand {
+                        name: name_b,
+                        hand: h_b,
+                        cards: c_b,
+                    }),
                     Ordering::Equal => Winner::Draw(vec![
                         PlayerHand {
                             name: name_a,
-                            best_hand: h_a,
+                            hand: h_a,
                             cards: c_a,
                         },
                         PlayerHand {
                             name: name_b,
-                            best_hand: h_b,
+                            hand: h_b,
                             cards: c_b,
                         },
                     ]),
                 },
             },
-            // if two players have a flush, the highest card wins. If the highest cards
-            // are the same, the second highest wins, and so on, down to the fifth card.
-            // If all five cards are the same, it's a draw.
-            (Hand::Flush(..), Hand::Flush(..)) => highest_cards(
+            // if two players each one of the other types of hand then their cards then
+            // their cards are compared pairwise. If all five cards are the same, it's a draw.
+            (Hand::Flush(..), Hand::Flush(..))
+            | (Hand::Straight(..), Hand::Straight(..))
+            | (Hand::ThreeOfAKind(..), Hand::ThreeOfAKind(..))
+            | (Hand::TwoPair(..), Hand::TwoPair(..))
+            | (Hand::OnePair(..), Hand::OnePair(..))
+            | (Hand::HighCard(..), Hand::HighCard(..)) => highest_cards(
                 PlayerHand {
                     name: name_a,
-                    best_hand: h_a,
+                    hand: h_a,
                     cards: c_a,
                 },
                 PlayerHand {
                     name: name_b,
-                    best_hand: h_b,
-                    cards: c_b,
-                },
-            ),
-            // if two players have a straight, the highest card wins. If the highest cards
-            // are the same, the second highest wins, and so on, down to the fifth card.
-            // If all five cards are the same, it's a draw.
-            (Hand::Straight(_r1), Hand::Straight(_r2)) => highest_cards(
-                PlayerHand {
-                    name: name_a,
-                    best_hand: h_a,
-                    cards: c_a,
-                },
-                PlayerHand {
-                    name: name_b,
-                    best_hand: h_b,
-                    cards: c_b,
-                },
-            ),
-            // if two players have three of a kind, the highest ranked triple wins. If they are the same, the highest
-            // kicker wins (highest from the remaining two cards
-            (Hand::ThreeOfAKind(_r1), Hand::ThreeOfAKind(_r2)) => highest_cards(
-                PlayerHand {
-                    name: name_a,
-                    best_hand: h_a,
-                    cards: c_a,
-                },
-                PlayerHand {
-                    name: name_b,
-                    best_hand: h_b,
-                    cards: c_b,
-                },
-            ),
-            // if two players have two pair, the highest rank pair wins. If they are the same, the higher ranked
-            // of the second pair wins. Otherwise the highest kicker wins.
-            (Hand::TwoPair(_r1, _r3), Hand::TwoPair(_r2, _r4)) => highest_cards(
-                PlayerHand {
-                    name: name_a,
-                    best_hand: h_a,
-                    cards: c_a,
-                },
-                PlayerHand {
-                    name: name_b,
-                    best_hand: h_b,
-                    cards: c_b,
-                },
-            ),
-            // if two players have one pair, the highest rank pair wins. Otherwise, decide by the kickers
-            (Hand::OnePair(_r1), Hand::OnePair(_r2)) => highest_cards(
-                PlayerHand {
-                    name: name_a,
-                    best_hand: h_a,
-                    cards: c_a,
-                },
-                PlayerHand {
-                    name: name_b,
-                    best_hand: h_b,
-                    cards: c_b,
-                },
-            ),
-            // If two players have the same high cards, compare the kickers
-            (Hand::HighCard(_r1), Hand::HighCard(_r2)) => highest_cards(
-                PlayerHand {
-                    name: name_a,
-                    best_hand: h_a,
-                    cards: c_a,
-                },
-                PlayerHand {
-                    name: name_b,
-                    best_hand: h_b,
+                    hand: h_b,
                     cards: c_b,
                 },
             ),
@@ -216,8 +151,8 @@ pub fn compare_hands(hand_a: PlayerHand, hand_b: PlayerHand) -> Winner {
 
 /// Decide which hand has the highest cards by comparing them pair-wise.
 fn highest_cards(hand_a: PlayerHand, hand_b: PlayerHand) -> Winner {
-    let (name_a, h_a, mut c_a) = (hand_a.name, hand_a.best_hand, hand_a.cards);
-    let (name_b, h_b, mut c_b) = (hand_b.name, hand_b.best_hand, hand_b.cards);
+    let (name_a, h_a, mut c_a) = (hand_a.name, hand_a.hand, hand_a.cards);
+    let (name_b, h_b, mut c_b) = (hand_b.name, hand_b.hand, hand_b.cards);
 
     // Sort cards in descending order (highest rank first).
     // Since Card implements Ord, it sorts by Rank then Suit.
@@ -226,17 +161,17 @@ fn highest_cards(hand_a: PlayerHand, hand_b: PlayerHand) -> Winner {
     // Compare card by card.
     for (card_a, card_b) in c_a.iter().zip(c_b.iter()) {
         if card_a.rank > card_b.rank {
-            return Winner::Winner {
+            return Winner::Winner(PlayerHand {
                 name: name_a,
                 hand: h_a,
                 cards: c_a,
-            };
+            });
         } else if card_b.rank > card_a.rank {
-            return Winner::Winner {
+            return Winner::Winner(PlayerHand {
                 name: name_b,
                 hand: h_b,
                 cards: c_b,
-            };
+            });
         }
     }
 
@@ -244,12 +179,12 @@ fn highest_cards(hand_a: PlayerHand, hand_b: PlayerHand) -> Winner {
     Winner::Draw(vec![
         PlayerHand {
             name: name_a,
-            best_hand: h_a,
+            hand: h_a,
             cards: c_a,
         },
         PlayerHand {
             name: name_b,
-            best_hand: h_b,
+            hand: h_b,
             cards: c_b,
         },
     ])
@@ -272,12 +207,12 @@ mod tests {
         let w = highest_cards(
             PlayerHand {
                 name: p1.to_string(),
-                best_hand: h1,
+                hand: h1,
                 cards: c1,
             },
             PlayerHand {
                 name: p2.to_string(),
-                best_hand: h1,
+                hand: h1,
                 cards: c2,
             },
         );
@@ -289,7 +224,7 @@ mod tests {
                     winners.len()
                 );
             }
-            Winner::Winner { name, .. } => panic!("Expected a draw but {} won.", name),
+            Winner::Winner(PlayerHand { name, .. }) => panic!("Expected a draw but {} won.", name),
         }
         let c1 = Vec::from(HIGH_CARD_TEN);
         let p3 = "player3";
@@ -298,12 +233,12 @@ mod tests {
         let w = highest_cards(
             PlayerHand {
                 name: p1.to_string(),
-                best_hand: h1,
+                hand: h1,
                 cards: c1,
             },
             PlayerHand {
                 name: p3.to_string(),
-                best_hand: h3,
+                hand: h3,
                 cards: c3,
             },
         );
@@ -311,7 +246,7 @@ mod tests {
             Winner::Draw(_winners) => {
                 panic!("Expected a win for p3, draw");
             }
-            Winner::Winner { name, .. } => {
+            Winner::Winner(PlayerHand { name, .. }) => {
                 assert!(name == p3, "Expected p3, was {}.", name)
             }
         }
@@ -328,12 +263,12 @@ mod tests {
         let w = compare_hands(
             PlayerHand {
                 name: p1.to_string(),
-                best_hand: h1,
+                hand: h1,
                 cards: c1,
             },
             PlayerHand {
                 name: p2.to_string(),
-                best_hand: h2,
+                hand: h2,
                 cards: c2,
             },
         );
@@ -345,7 +280,7 @@ mod tests {
                     winners.len()
                 );
             }
-            Winner::Winner { name, .. } => panic!("Expected a draw but {} won.", name),
+            Winner::Winner(PlayerHand { name, .. }) => panic!("Expected a draw but {} won.", name),
         }
     }
 

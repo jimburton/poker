@@ -62,7 +62,7 @@ impl Actor for CLIPlayer {
             Msg::Misc(contents) => {
                 println!("Update: {}", contents,);
             }
-            Msg::Winner(w) => {
+            Msg::Game(w) => {
                 println!("##############\n## {}.\n##############", w,);
             }
             Msg::Round(stage) => {

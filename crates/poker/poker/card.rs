@@ -1,6 +1,6 @@
+/// Types and functions relating to cards.
 use std::fmt::{self, Display};
 
-/// Types and functions relating to cards.
 /// The rank of a card.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 pub enum Rank {
@@ -18,6 +18,7 @@ pub enum Rank {
     King = 13,
     Ace = 14,
 }
+/// Implementation of Display trait for Rank.
 impl Display for Rank {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let val = match self.value() {
@@ -65,13 +66,13 @@ pub enum Suit {
     Diamonds,
     Hearts,
 }
-
+/// Helper method for Suit.
 impl Suit {
     pub fn values() -> [Suit; 4] {
         [Suit::Clubs, Suit::Spades, Suit::Diamonds, Suit::Hearts]
     }
 }
-
+/// Implementation of Display trait for Suit.
 impl Display for Suit {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -89,7 +90,7 @@ pub struct Card {
     pub rank: Rank,
     pub suit: Suit,
 }
-
+/// Implementation of Display trait for Card.
 impl Display for Card {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} of {}", self.rank, self.suit)
@@ -110,7 +111,7 @@ pub enum Hand {
     FourOfAKind(Rank),
     StraightFlush(Rank), // highest rank of the flush
 }
-
+/// Implementation of Display trait for Hand.
 impl Display for Hand {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {

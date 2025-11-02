@@ -1,4 +1,5 @@
 /// Functions for generating and organising sequences of cards.
+use std::cmp::Reverse;
 use std::collections::{HashMap, HashSet};
 
 use crate::poker::card::{Card, Rank, Suit};
@@ -59,7 +60,7 @@ pub fn longest_sequence(cards: &Vec<Card>) -> Vec<Card> {
         best_start_value = sorted_unique_ranks[0].value();
     }
 
-    // --- Filter the original hand to collect the cards in the longest sequence (one card per rank) ---
+    // Filter the original hand to collect the cards in the longest sequence (one card per rank) ---
 
     // Collect the actual cards, ensuring only one card is selected for each rank in the sequence.
     let mut final_sequence_cards: Vec<Card> = Vec::new();
@@ -103,7 +104,7 @@ pub fn group_by_rank(cards: &Vec<Card>) -> Vec<Vec<Card>> {
             .push(*card);
     }
     let mut cs: Vec<Vec<Card>> = grouped_by_rank.into_values().collect();
-    cs.sort_by(|a, b| b.len().cmp(&a.len()));
+    cs.sort_by_key(|b| Reverse(b.len()));
     cs
 }
 
@@ -124,13 +125,13 @@ pub fn group_by_suit(cards: &Vec<Card>) -> Vec<Vec<Card>> {
     cs.iter_mut()
         .for_each(|inner| inner.sort_by(|a, b| b.rank.cmp(&a.rank)));
     // sort the outer lists by length
-    cs.sort_by(|a, b| b.len().cmp(&a.len()));
+    cs.sort_by_key(|b| Reverse(b.len()));
     cs
 }
 
 /// Predicate for a collection of cards being of the same suit.
 pub fn same_suit(cards: &Vec<Card>) -> bool {
-    if cards.len() == 0 {
+    if cards.is_empty() {
         true
     } else {
         let c1 = cards[0];

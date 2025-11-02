@@ -1,6 +1,7 @@
+/// Datatypes and functions for the game and individual rounds.
 use crate::poker::card::{new_deck, Card};
 use crate::poker::compare::{best_hand, compare_hands};
-use crate::poker::player::{Msg, PlayerHand, Winner, WinnerInfo};
+use crate::poker::player::{Msg, Player, PlayerHand, Winner, WinnerInfo};
 use crate::poker::rotate_vector;
 use num_traits::ToPrimitive;
 use rand::rng;
@@ -8,9 +9,6 @@ use rand::seq::SliceRandom;
 use std::collections::HashMap;
 use std::fmt::{self, Display};
 
-use crate::poker::player::Player;
-
-/// Datatypes and functions for the game and individual rounds.
 /// Enum for representing the stage of a round.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Stage {
@@ -22,7 +20,7 @@ pub enum Stage {
     River,
     ShowDown,
 }
-
+/// Implementarion of Display trait for Stage.
 impl Display for Stage {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -37,7 +35,7 @@ impl Display for Stage {
     }
 }
 
-/// Enum fro representing a bet.
+/// Enum for representing a bet.
 #[derive(Debug, Copy, Clone)]
 pub enum Bet {
     Fold,
@@ -46,7 +44,7 @@ pub enum Bet {
     Raise(usize),
     AllIn(usize),
 }
-
+/// Implementation of Display trait for Bet.
 impl Display for Bet {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -134,54 +132,41 @@ impl Game {
     }
 
     /// Play a game.
-    pub fn play(&mut self) -> WinnerInfo {
+    pub fn play(&mut self) -> Winner {
         while self.players.len() > 1 {
             self.play_round();
             self.reset_after_round();
             self.num_rounds += 1;
         }
         let w = self.get_winner();
-        self.announce_winner_game(&w);
+        let msg = Msg::Game(w.clone());
+        self.update_players(&msg);
         w
     }
 
-    /// Determine the winner at the end of the game.
-    fn get_winner(&self) -> WinnerInfo {
+    /// Determine the winner at the end of the game. Assumption is that there's only one
+    /// player left.
+    fn get_winner(&self) -> Winner {
         let winner_opt = self.players_order.first();
         if let Some(name) = winner_opt {
             let winner = self.players.get(name).unwrap();
+            let mut cards = self.community_cards.clone();
+            let (h1, h2) = winner.hole.unwrap();
+            cards.push(h1);
+            cards.push(h2);
             let name = winner.name.clone();
-            let winnings = winner.bank_roll;
-            let num_rounds = self.num_rounds;
-            WinnerInfo {
-                name,
-                num_rounds,
-                winnings,
-            }
+            let hand = best_hand(&cards);
+            Winner::Winner(PlayerHand { name, hand, cards })
         } else {
             panic!("Announcing winner but they have been removed...")
         }
     }
 
     /// Announce the winner at the end of the game.
-    fn announce_winner_game(&self, winner: &WinnerInfo) {
-        let announce = format!(
-            "Congratulations {}, you played {} rounds and won with a bank roll of {}.",
-            winner.name, winner.num_rounds, winner.winnings
-        );
-        let msg = Msg::Misc(announce);
-        for player in self.players.values() {
-            player.update(&msg);
-        }
-    }
-
-    /// Announce the winner at the end of the game.
     fn announce_winner_round(&self) {
         let w = self.winner.as_ref().unwrap();
-        let msg = Msg::Winner(w.clone());
-        for player in self.players.values() {
-            player.update(&msg);
-        }
+        let msg = Msg::Game(w.clone());
+        self.update_players(&msg);
     }
 
     /// Set the name of the dealer and reorder the players_order list
@@ -225,6 +210,7 @@ impl Game {
         self.stage = Stage::ShowDown;
         self.showdown();
         self.distribute_pots();
+        // announce the winner.
         self.announce_winner_round();
     }
 
@@ -240,7 +226,6 @@ impl Game {
         let players_order = self.players_order.clone();
 
         // Handle the first player (Small Blind) in a restricted scope.
-        // This allows the mutable reference 'first_p' to drop immediately.
         {
             let left_of_dealer: &String = players_order.first().unwrap();
 
@@ -252,14 +237,11 @@ impl Game {
                 // NB: player marks themself as folded if they responded negatively
                 // or as all in if their bank roll was less than the blind.
             }
-        } // <- Mutable borrow of self.players drops here.
+        }
 
         // Handle the remaining players.
-        // We can now mutably borrow players inside the loop without conflict.
         players_order[1..].iter().for_each(|name| {
-            // Mutably borrow the current player 'p'
             if let Some(p) = self.players.get_mut(name) {
-                // The players map is only borrowed for the duration of this 'if let' block.
                 if let Some(blind) = p.ante_up(self.big_blind) {
                     self.pot += blind
                 }
@@ -354,13 +336,8 @@ impl Game {
         // for managing its own state during betting, e.g. keeping the bank roll up to date
         // and whether the player is folded or all in.
         while !done && players.len() > 1 {
-            // Use the cloned players_order for iteration indexing
             let current_name = &players[current_index % players.len()];
-
-            // Mutable borrow of self.players is short-lived within this loop iteration.
             let p = self.players.get_mut(current_name).unwrap();
-
-            // Compare the player's name with the owned target String.
             if p.name == target && target_placed_bet {
                 done = true;
             } else {
@@ -388,25 +365,22 @@ impl Game {
                     }
                     Bet::Raise(raise) => {
                         if !self.side_pots.is_empty() {
-                            // Must get a mutable reference to side_pots here
                             let side_pot = self.side_pots.get_mut(0).unwrap();
                             side_pot.pot += raise;
                         } else {
                             self.pot += raise;
                         }
-                        // raise is the new total amount to match/beat
+                        // raise is the new amount to match/beat
                         call = raise;
                         target = p.name.clone();
                     }
                     Bet::AllIn(bet) => {
                         self.pot += bet;
 
-                        // not_all_in now contains owned Strings, so we can search by value.
                         if let Some(index) = not_all_in.iter().position(|value| value == &p.name) {
                             not_all_in.swap_remove(index);
                         }
 
-                        // Clone the list for the new side pot's players
                         let new_side_pot = SidePot {
                             players: not_all_in.clone(),
                             pot: 0,
@@ -422,13 +396,12 @@ impl Game {
                     bet,
                 };
                 self.update_players(&update);
-
-                // ensure 'current' wraps correctly.
                 current_index = (current_index + 1) % players.len();
             }
         }
     }
 
+    /// Send a message to the players.
     fn update_players(&self, update: &Msg) {
         self.players.iter().for_each(|(_name, p)| {
             p.update(update);
@@ -437,25 +410,25 @@ impl Game {
 
     /// Determines the winner(s) of the round.
     fn showdown(&mut self) {
-        // Calculate the best hand for each non-folded player.
+        // Get the best hand for each non-folded player.
         let mut hands: Vec<PlayerHand> =
             self.names_to_hands(self.players.keys().cloned().collect());
         // Handle cases where 0 or 1 players remain (the last player standing wins)
         if hands.len() < 2 {
             if let Some(PlayerHand {
                 name,
-                best_hand,
+                hand: best_hand,
                 cards,
             }) = hands.pop()
             {
-                let winner = Winner::Winner {
+                let winner = Winner::Winner(PlayerHand {
                     name,
                     hand: best_hand,
                     cards,
-                };
+                });
                 self.winner = Some(winner);
             } else {
-                dbg!("No players remaining to determine winner.");
+                panic!("No players remaining to determine winner.");
             }
             return;
         }
@@ -464,7 +437,7 @@ impl Game {
         self.winner = Some(winner);
     }
 
-    /// Take a vector of player names and return a vector of (name, hand, cards),
+    /// Takes a vector of player names and return a vector of (name, hand, cards),
     /// where hand is their best hand and cards is their hole cards plus community cards.
     /// Result contains only non-folded players.
     fn names_to_hands(&self, names: Vec<String>) -> Vec<PlayerHand> {
@@ -477,11 +450,9 @@ impl Game {
                 if p.folded || !names.contains(&p.name) {
                     return None;
                 }
-
                 let (c1, c2) = p
                     .hole
                     .expect("Hole cards should be dealt before calling names_to_hands");
-
                 // Collect all 7 cards (2 hole + 5 community)
                 let mut all_cards = self.community_cards.clone();
                 all_cards.push(c1);
@@ -490,7 +461,7 @@ impl Game {
                 let best_hand = best_hand(&all_cards);
                 Some(PlayerHand {
                     name: p.name.clone(),
-                    best_hand,
+                    hand: best_hand,
                     cards: all_cards,
                 })
             })
@@ -504,62 +475,59 @@ impl Game {
         if hands.len() < 2 {
             if let Some(PlayerHand {
                 name,
-                best_hand,
+                hand: best_hand,
                 cards,
             }) = hands.pop()
             {
-                return Winner::Winner {
+                return Winner::Winner(PlayerHand {
                     name,
                     hand: best_hand,
                     cards,
-                };
+                });
             } else {
-                dbg!("No players remaining to determine winner.");
+                panic!("No players remaining to determine winner.");
             }
         }
 
         // Compare the hands.
 
-        // Initialize winner with the first player's hand, consuming it from the vector.
+        // Initialize winner with the first player's hand.
         let mut winner: Winner = {
             let PlayerHand {
                 name,
-                best_hand,
+                hand: best_hand,
                 cards,
             } = hands.remove(0);
-            Winner::Winner {
+            Winner::Winner(PlayerHand {
                 name,
                 hand: best_hand,
                 cards,
-            }
+            })
         };
 
         // Compare current winner against all remaining hands.
         for PlayerHand {
             name: challenger_name,
-            best_hand: challenger_hand,
+            hand: challenger_hand,
             cards: challenger_cards,
         } in hands
         {
-            // Match is used to consume the existing winner state and re-assign
-            // the result back to 'winner' for the next iteration.
             winner = match winner {
-                Winner::Winner {
+                Winner::Winner(PlayerHand {
                     name: w_name,
                     hand: w_hand,
                     cards: w_cards,
-                } => {
+                }) => {
                     // Compare the current winner (w_...) against the challenger (challenger_...)
                     compare_hands(
-                        // Challenger data is moved here
                         PlayerHand {
                             name: challenger_name,
-                            best_hand: challenger_hand,
+                            hand: challenger_hand,
                             cards: challenger_cards,
                         },
                         PlayerHand {
                             name: w_name,
-                            best_hand: w_hand,
+                            hand: w_hand,
                             cards: w_cards,
                         },
                     )
@@ -569,19 +537,19 @@ impl Game {
                     // Assume the first element of a Draw is the benchmark.
                     let PlayerHand {
                         name: w_name_benchmark,
-                        best_hand: w_hand_benchmark,
+                        hand: w_hand_benchmark,
                         cards: w_cards_benchmark,
                     } = draw_winners.pop().unwrap();
 
                     let comparison_result = compare_hands(
                         PlayerHand {
                             name: challenger_name.clone(),
-                            best_hand: challenger_hand,
+                            hand: challenger_hand,
                             cards: challenger_cards.clone(),
                         },
                         PlayerHand {
                             name: w_name_benchmark.clone(),
-                            best_hand: w_hand_benchmark,
+                            hand: w_hand_benchmark,
                             cards: w_cards_benchmark.clone(),
                         },
                     );
@@ -589,23 +557,23 @@ impl Game {
                     // Put the benchmark hand back for future comparisons or draw outcome
                     draw_winners.push(PlayerHand {
                         name: w_name_benchmark,
-                        best_hand: w_hand_benchmark,
+                        hand: w_hand_benchmark,
                         cards: w_cards_benchmark,
                     });
 
                     match comparison_result {
-                        Winner::Winner {
+                        Winner::Winner(PlayerHand {
                             name: n,
                             hand: h,
                             cards: c,
-                        } => {
+                        }) => {
                             if n == challenger_name {
                                 // Challenger is better than the benchmark (and thus all previous winners)
-                                Winner::Winner {
+                                Winner::Winner(PlayerHand {
                                     name: n,
                                     hand: h,
                                     cards: c,
-                                }
+                                })
                             } else {
                                 // Challenger is worse than the benchmark, keep the existing draw group
                                 Winner::Draw(draw_winners)
@@ -616,7 +584,7 @@ impl Game {
                             // The original (un-cloned) challenger values are now moved here.
                             draw_winners.push(PlayerHand {
                                 name: challenger_name,
-                                best_hand: challenger_hand,
+                                hand: challenger_hand,
                                 cards: challenger_cards,
                             });
                             Winner::Draw(draw_winners)
@@ -630,7 +598,9 @@ impl Game {
 
     /// Distributes the pot and side pot to the winner(s).
     ///
-    /// TODO keep track of chips being lost due to truncating division.
+    /// TODO
+    /// + refactor this into several smaller methods,
+    /// + keep track of chips being lost due to truncating division.
     fn distribute_pots(&mut self) {
         let winner = self.winner.clone();
         let main_pot = self.pot;
@@ -648,7 +618,7 @@ impl Game {
                 (
                     PlayerHand {
                         name: p.name.clone(),
-                        best_hand: best_hand(&cards),
+                        hand: best_hand(&cards),
                         cards,
                     },
                     p.all_in,
@@ -663,13 +633,13 @@ impl Game {
                 |(
                     PlayerHand {
                         name,
-                        best_hand,
+                        hand: best_hand,
                         cards,
                     },
                     _all_in,
                 )| PlayerHand {
                     name: name.clone(),
-                    best_hand: best_hand.clone(),
+                    hand: *best_hand,
                     cards: cards.clone(),
                 },
             )
@@ -682,7 +652,7 @@ impl Game {
         }
         if let Some(w) = winner {
             match w {
-                Winner::Winner { name, .. } => {
+                Winner::Winner(PlayerHand { name, .. }) => {
                     let winner_name = name.clone();
                     if not_folded_clone.iter().any(|(ph, _all_in)| ph.name == name) {
                         // winner is not folded
@@ -712,7 +682,7 @@ impl Game {
                                     .filter(|(ph, _all_in)| sp.players.contains(&ph.name))
                                     .map(|(ph, _all_in)| PlayerHand {
                                         name: ph.name.clone(),
-                                        best_hand: ph.best_hand,
+                                        hand: ph.hand,
                                         cards: ph.cards.clone(),
                                     })
                                     .collect();
@@ -729,7 +699,7 @@ impl Game {
                                     let w = Game::determine_winner(candidates);
                                     match w {
                                         // single winner for this side pot
-                                        Winner::Winner { name, .. } => {
+                                        Winner::Winner(PlayerHand { name, .. }) => {
                                             match winnings.get_mut(&name) {
                                                 Some(value) => *value += sp.pot, // If the key exists, update the value
                                                 None => panic!(
@@ -743,7 +713,7 @@ impl Game {
                                             let pot_share = sp.pot / winners.len();
                                             for PlayerHand {
                                                 name,
-                                                best_hand: _,
+                                                hand: _,
                                                 cards: _,
                                             } in winners
                                             {
@@ -761,7 +731,7 @@ impl Game {
                             }
                         }
                     } else {
-                        dbg!("Winner not in not_folded.");
+                        panic!("Winner not in not_folded.");
                     }
                 }
                 Winner::Draw(winners) => {
@@ -769,7 +739,7 @@ impl Game {
                     let main_pot_share = main_pot / winners.len();
                     for PlayerHand {
                         name,
-                        best_hand: _,
+                        hand: _,
                         cards: _,
                     } in winners.clone()
                     {
@@ -786,7 +756,7 @@ impl Game {
                             .filter(|(ph, _all_in)| sp.players.contains(&ph.name))
                             .map(|(ph, _all_in)| PlayerHand {
                                 name: ph.name.clone(),
-                                best_hand: ph.best_hand,
+                                hand: ph.hand,
                                 cards: ph.cards.clone(),
                             })
                             .collect();
@@ -794,7 +764,7 @@ impl Game {
                             // everyone who contributed to this side pot has folded, the winners share the pot
                             for PlayerHand {
                                 name,
-                                best_hand: _,
+                                hand: _,
                                 cards: _,
                             } in winners.clone()
                             {
@@ -810,21 +780,18 @@ impl Game {
                             let w = Game::determine_winner(candidates);
                             match w {
                                 // single winner for this side pot
-                                Winner::Winner { name, .. } => match winnings.get_mut(&name) {
-                                    Some(value) => *value += sp.pot,
-                                    None => {
-                                        panic!("Key '{}' does not exist in the HashMap.", name)
+                                Winner::Winner(PlayerHand { name, .. }) => {
+                                    match winnings.get_mut(&name) {
+                                        Some(value) => *value += sp.pot,
+                                        None => {
+                                            panic!("Key '{}' does not exist in the HashMap.", name)
+                                        }
                                     }
-                                },
+                                }
                                 // multiple winners for this side pot
                                 Winner::Draw(winners) => {
                                     let pot_share = sp.pot / winners.len();
-                                    for PlayerHand {
-                                        name,
-                                        best_hand: _,
-                                        cards: _,
-                                    } in winners
-                                    {
+                                    for PlayerHand { name, .. } in winners {
                                         match winnings.get_mut(&name) {
                                             Some(value) => *value += pot_share,
                                             None => panic!(
@@ -855,6 +822,7 @@ impl Game {
         }
     }
 
+    /// Reset the Game and Players after a round.
     fn reset_after_round(&mut self) {
         self.pot = 0;
         self.side_pots = Vec::new();
@@ -1253,11 +1221,11 @@ mod tests {
 
         let w = game.winner.clone();
 
-        if let Some(Winner::Winner {
+        if let Some(Winner::Winner(PlayerHand {
             name: n,
             hand: h,
             cards: _cs,
-        }) = w
+        })) = w
         {
             assert!(n == "player1", "Expected player1, was {}", n);
             assert!(
@@ -1342,7 +1310,7 @@ mod tests {
             winners.iter().for_each(
                 |PlayerHand {
                      name: _name,
-                     best_hand: h,
+                     hand: h,
                      cards: _cs,
                  }| {
                     assert!(
@@ -1365,11 +1333,11 @@ mod tests {
         game.deal_hole_cards();
         // test outight winner
         game.pot = 120;
-        game.winner = Some(Winner::Winner {
+        game.winner = Some(Winner::Winner(PlayerHand {
             name: "player1".to_string(),
             hand: Hand::HighCard(Rank::Ace),
             cards: Vec::new(),
-        });
+        }));
 
         game.distribute_pots();
 
@@ -1382,11 +1350,11 @@ mod tests {
 
         let w = game.winner.clone();
 
-        if let Some(Winner::Winner {
+        if let Some(Winner::Winner(PlayerHand {
             name,
             hand: _hand,
             cards: _cards,
-        }) = w
+        })) = w
         {
             let p = game.players.get(&name).unwrap();
             assert!(
@@ -1407,12 +1375,12 @@ mod tests {
         game.winner = Some(Winner::Draw(vec![
             PlayerHand {
                 name: "player1".to_string(),
-                best_hand: Hand::HighCard(Rank::Ace),
+                hand: Hand::HighCard(Rank::Ace),
                 cards: Vec::new(),
             },
             PlayerHand {
                 name: "player2".to_string(),
-                best_hand: Hand::HighCard(Rank::Ace),
+                hand: Hand::HighCard(Rank::Ace),
                 cards: Vec::new(),
             },
         ]));
@@ -1427,7 +1395,7 @@ mod tests {
             winners.iter().for_each(
                 |PlayerHand {
                      name,
-                     best_hand: _h,
+                     hand: _h,
                      cards: _cs,
                  }| {
                     let p = game.players.get(name).unwrap();
@@ -1473,17 +1441,17 @@ mod tests {
         game.winner = Some(Winner::Draw(vec![
             PlayerHand {
                 name: "player1".to_string(),
-                best_hand: Hand::HighCard(Rank::Ace),
+                hand: Hand::HighCard(Rank::Ace),
                 cards: Vec::new(),
             },
             PlayerHand {
                 name: "player2".to_string(),
-                best_hand: Hand::HighCard(Rank::Ace),
+                hand: Hand::HighCard(Rank::Ace),
                 cards: Vec::new(),
             },
             PlayerHand {
                 name: "player3".to_string(),
-                best_hand: Hand::HighCard(Rank::Ace),
+                hand: Hand::HighCard(Rank::Ace),
                 cards: Vec::new(),
             },
         ]));
@@ -1498,7 +1466,7 @@ mod tests {
             winners.iter().for_each(
                 |PlayerHand {
                      name,
-                     best_hand: _h,
+                     hand: _h,
                      cards: _cs,
                  }| {
                     let p = game.players.get(name).unwrap();

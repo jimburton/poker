@@ -1,5 +1,6 @@
-/// Types and functions relating to cards.
+use std::fmt::{self, Display};
 
+/// Types and functions relating to cards.
 /// The rank of a card.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 pub enum Rank {
@@ -16,6 +17,19 @@ pub enum Rank {
     Queen = 12,
     King = 13,
     Ace = 14,
+}
+impl Display for Rank {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let val = match self.value() {
+            2..=10 => format!("{}", self.value()),
+            11 => "Jack".to_string(),
+            12 => "Queen".to_string(),
+            13 => "King".to_string(),
+            14 => "Ace".to_string(),
+            _ => "Unknown".to_string(),
+        };
+        write!(f, "{}", val)
+    }
 }
 /// Rank helper methods
 impl Rank {
@@ -58,11 +72,28 @@ impl Suit {
     }
 }
 
+impl Display for Suit {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Suit::Clubs => write!(f, "Clubs"),
+            Suit::Spades => write!(f, "Spades"),
+            Suit::Diamonds => write!(f, "Diamonds"),
+            Suit::Hearts => write!(f, "Hearts"),
+        }
+    }
+}
+
 /// A card has a rank and a suit.
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd, Clone, Copy)]
 pub struct Card {
     pub rank: Rank,
     pub suit: Suit,
+}
+
+impl Display for Card {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} of {}", self.rank, self.suit)
+    }
 }
 
 /// A poker hand, ranked from lowest to highest. Assuming there are no wild cards allowed,
@@ -78,6 +109,22 @@ pub enum Hand {
     FullHouse(Rank, Rank),
     FourOfAKind(Rank),
     StraightFlush(Rank), // highest rank of the flush
+}
+
+impl Display for Hand {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Hand::HighCard(r) => write!(f, "High Card ({})", r),
+            Hand::OnePair(r) => write!(f, "One Pair ({})", r),
+            Hand::TwoPair(r1, r2) => write!(f, "Two Pair ({} and {})", r1, r2),
+            Hand::ThreeOfAKind(r) => write!(f, "Three of a Kind ({})", r),
+            Hand::Straight(r) => write!(f, "Straight (ending {})", r),
+            Hand::Flush(r1, _r2, _r3, _r4, r5) => write!(f, "Flush ({} to {})", r1, r5),
+            Hand::FullHouse(r1, r2) => write!(f, "Full House ({} {})", r1, r2),
+            Hand::FourOfAKind(r) => write!(f, "Four of a Kind ({})", r),
+            Hand::StraightFlush(r) => write!(f, "Straight Flush (ending {})", r),
+        }
+    }
 }
 
 /// Get a new unshuffled deck of 52 cards.

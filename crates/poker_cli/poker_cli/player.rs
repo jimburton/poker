@@ -1,5 +1,6 @@
 use poker::poker::{
     card::Card,
+    compare::best_hand,
     game::{Bet, Stage},
     player::{Actor, Msg},
 };
@@ -20,14 +21,20 @@ impl Actor for CLIPlayer {
         community_cards: Vec<Card>,
         hole_cards: (Card, Card),
     ) -> Option<Bet> {
-        println!("It's your turn to place a bet in the {:?}.", stage);
-        println!("Hole cards:\n{:?}\n{:?}", hole_cards.0, hole_cards.1);
+        let mut cards = community_cards.clone();
+        let (h1, h2) = (hole_cards.0, hole_cards.1);
+        cards.push(h1);
+        cards.push(h2);
+        let bh = best_hand(&cards);
+
+        println!("It's your turn to place a bet in the {}.", stage);
+        println!("Hole cards: {}, {}", h1, h2);
         if !community_cards.is_empty() {
             println!("Community cards:",);
-            community_cards.iter().for_each(|c| println!("{:?}", c));
+            community_cards.iter().for_each(|c| println!("{}", c));
         }
         println!("The bet stands at {} (minimum amount to bet {})", call, min);
-        println!("Bank roll: {}", bank_roll);
+        println!("Bank roll: {}. Best hand: {}", bank_roll, bh);
         println!("Enter R(aise) <amount>, C(all), Ch(eck), A(ll in), F(old)");
         let mut input = String::new(); // A mutable String to hold the user input
         std::io::stdin()
@@ -49,17 +56,20 @@ impl Actor for CLIPlayer {
 
     fn update(&self, msg: &Msg) {
         match msg {
-            Msg::MsgBet(update) => {
-                println!(
-                    "Update: Player {} made bet: {:?}",
-                    update.player, update.bet
-                );
+            Msg::Bet { player, bet } => {
+                println!("Player {} made bet: {}", player, bet);
             }
-            Msg::MsgMisc(contents) => {
+            Msg::Misc(contents) => {
                 println!("Update: {}", contents,);
             }
-            Msg::MsgWinner(w) => {
-                println!("Update: {:?}", w,);
+            Msg::Winner(w) => {
+                println!("##############\n## {}.\n##############", w,);
+            }
+            Msg::Round(stage) => {
+                println!(
+                    "##############\n## The {} stage is beginning.\n##############",
+                    stage,
+                );
             }
         }
     }

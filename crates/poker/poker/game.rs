@@ -6,11 +6,11 @@ use num_traits::ToPrimitive;
 use rand::rng;
 use rand::seq::SliceRandom;
 use std::collections::HashMap;
+use std::fmt::{self, Display};
 
-use super::player::{Player, Update};
+use crate::poker::player::Player;
 
 /// Datatypes and functions for the game and individual rounds.
-
 /// Enum for representing the stage of a round.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Stage {
@@ -23,14 +23,40 @@ pub enum Stage {
     ShowDown,
 }
 
+impl Display for Stage {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Stage::Blinds => write!(f, "Blinds"),
+            Stage::Hole => write!(f, "Hole"),
+            Stage::PreFlop => write!(f, "Pre-Flop"),
+            Stage::Flop => write!(f, "Flop"),
+            Stage::Turn => write!(f, "Turn"),
+            Stage::River => write!(f, "River"),
+            Stage::ShowDown => write!(f, "Showdown"),
+        }
+    }
+}
+
 /// Enum fro representing a bet.
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum Bet {
     Fold,
     Check,
     Call,
     Raise(usize),
     AllIn(usize),
+}
+
+impl Display for Bet {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Bet::Fold => write!(f, "Fold"),
+            Bet::Check => write!(f, "Check"),
+            Bet::Call => write!(f, "Call"),
+            Bet::Raise(amount) => write!(f, "Raise ({})", amount),
+            Bet::AllIn(amount) => write!(f, "All in ({})", amount),
+        }
+    }
 }
 
 /// Struct for a side pot.
@@ -101,7 +127,6 @@ impl Game {
             return Err("Cannot add more players.");
         }
         let name = player.name.clone();
-        println!("Player joining: {}", name);
         player.bank_roll = self.buy_in;
         self.players.insert(name.clone(), Box::new(player));
         self.players_order.push(name);
@@ -110,7 +135,6 @@ impl Game {
 
     /// Play a game.
     pub fn play(&mut self) -> WinnerInfo {
-        println!("Playing game with: {:?}", self.players);
         while self.players.len() > 1 {
             self.play_round();
             self.reset_after_round();
@@ -141,16 +165,20 @@ impl Game {
 
     /// Announce the winner at the end of the game.
     fn announce_winner_game(&self, winner: &WinnerInfo) {
-        println!(
+        let announce = format!(
             "Congratulations {}, you played {} rounds and won with a bank roll of {}.",
             winner.name, winner.num_rounds, winner.winnings
         );
+        let msg = Msg::Misc(announce);
+        for player in self.players.values() {
+            player.update(&msg);
+        }
     }
 
     /// Announce the winner at the end of the game.
     fn announce_winner_round(&self) {
         let w = self.winner.as_ref().unwrap();
-        let msg = Msg::MsgWinner(w.clone());
+        let msg = Msg::Winner(w.clone());
         for player in self.players.values() {
             player.update(&msg);
         }
@@ -285,7 +313,6 @@ impl Game {
     /// Players are given the opportunity to bet. If a player raises the bet, every
     /// other player must call or raise again.
     fn place_bets(&mut self) {
-        println!("Placing bets: {:?}", self.players);
         // names of players who have not folded
         let not_folded: Vec<(String, bool)> = self
             .players
@@ -293,7 +320,7 @@ impl Game {
             .filter(|p| !p.folded)
             .map(|p| (p.name.clone(), p.all_in))
             .collect();
-        // names of players who have not folded and are not all in
+        // names of players who have not folded and are not all in. These are the players who need to make a bet/call/fold.
         let mut not_all_in: Vec<String> = not_folded
             .iter()
             .filter(|(_name, all_in)| !all_in)
@@ -310,18 +337,25 @@ impl Game {
             return;
         }
 
-        let mut current: usize = 0;
-        let mut target: String = players.first().unwrap().clone();
+        let update = Msg::Round(self.stage);
+        self.update_players(&update);
 
-        let mut done: bool = false;
-        let mut target_placed_bet: bool = false;
+        let mut current_index: usize = 0;
+        // target is the player at which the round of betting should stop.
+        // This is altered when a player raises the bet.
+        let mut target: String = players.first().unwrap().clone();
+        let mut done: bool = false; // flag to stop the loop
+        let mut target_placed_bet: bool = false; // flag to allow target to place first bet.
         let mut call: usize = 0;
         let min = self.big_blind;
-        let mut cycle: u8 = 0; // the number of times players have been given a chance to bet in this round
+        let mut cycle: u8 = 0; // the number of times players have been given a chance to bet in this round.
 
-        while !done {
+        // Ask each player to place a bet at least once. Note that the Player struct is responsible
+        // for managing its own state during betting, e.g. keeping the bank roll up to date
+        // and whether the player is folded or all in.
+        while !done && players.len() > 1 {
             // Use the cloned players_order for iteration indexing
-            let current_name = &players[current % players.len()];
+            let current_name = &players[current_index % players.len()];
 
             // Mutable borrow of self.players is short-lived within this loop iteration.
             let p = self.players.get_mut(current_name).unwrap();
@@ -332,8 +366,8 @@ impl Game {
             } else {
                 if p.name == target {
                     target_placed_bet = true;
-                    cycle += 1;
                 }
+                cycle += 1;
                 let ccards = self.community_cards.clone();
                 let bet_opt = p.place_bet(call, min, ccards, self.stage, cycle);
 
@@ -341,8 +375,7 @@ impl Game {
 
                 match bet {
                     Bet::Fold => {
-                        p.folded = true;
-                        players.remove(current);
+                        players.remove(current_index);
                         continue; // continue without incrementing current
                     }
                     Bet::Check => {
@@ -354,22 +387,16 @@ impl Game {
                         self.pot += call;
                     }
                     Bet::Raise(raise) => {
-                        if raise > call {
-                            if !self.side_pots.is_empty() {
-                                // Must get a mutable reference to side_pots here
-                                let side_pot = self.side_pots.get_mut(0).unwrap();
-                                side_pot.pot += raise;
-                            } else {
-                                self.pot += raise;
-                            }
-                            // raise is the new total amount to match/beat
-                            call = raise;
-                            // 3. FIX: Clone the player's name into the owned 'target' String.
-                            target = p.name.clone();
+                        if !self.side_pots.is_empty() {
+                            // Must get a mutable reference to side_pots here
+                            let side_pot = self.side_pots.get_mut(0).unwrap();
+                            side_pot.pot += raise;
                         } else {
-                            dbg!("Tried to raise less than call.");
-                            p.folded = true;
+                            self.pot += raise;
                         }
+                        // raise is the new total amount to match/beat
+                        call = raise;
+                        target = p.name.clone();
                     }
                     Bet::AllIn(bet) => {
                         self.pot += bet;
@@ -385,18 +412,19 @@ impl Game {
                             pot: 0,
                         };
                         self.side_pots.push(new_side_pot);
+                        // don't ask this player again in this round.
+                        players.remove(current_index);
+                        continue; // continue without incrementing current
                     }
                 }
-                let update = Msg::MsgBet(Update {
+                let update = Msg::Bet {
                     player: p.name.clone(),
                     bet,
-                });
-                self.players.iter().for_each(|(_name, p)| {
-                    p.update(&update);
-                });
+                };
+                self.update_players(&update);
 
                 // ensure 'current' wraps correctly.
-                current = (current + 1) % players.len();
+                current_index = (current_index + 1) % players.len();
             }
         }
     }
@@ -891,7 +919,7 @@ mod tests {
     #[test]
     fn test_add_too_many_players() {
         let mut game = Game::build(10, 2);
-        game.join(Player::build("player1", AutoActor::new()));
+        let _ = game.join(Player::build("player1", AutoActor::new()));
         let _ = game.join(Player::build("player2", AutoActor::new()));
         if let Err(e) = game.join(Player::build("player3", AutoActor::new())) {
             assert!(

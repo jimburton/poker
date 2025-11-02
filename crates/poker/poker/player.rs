@@ -2,7 +2,7 @@
 use crate::poker::betting_strategy;
 use crate::poker::card::{Card, Hand};
 use crate::poker::game::{Bet, Stage};
-use std::fmt::Debug;
+use std::fmt::{self, Debug, Display};
 
 use super::betting_strategy::{BettingStrategy, StrategyArgs};
 /// A utility struct with information about a player's hand, with the
@@ -15,16 +15,21 @@ pub struct PlayerHand {
 }
 
 #[derive(Debug, Clone)]
-pub struct Update {
-    pub player: String,
-    pub bet: Bet,
-}
-
-#[derive(Debug, Clone)]
 pub enum Msg {
-    MsgBet(Update),
-    MsgMisc(String),
-    MsgWinner(Winner),
+    Round(Stage),
+    Bet { player: String, bet: Bet },
+    Misc(String),
+    Winner(Winner),
+}
+impl Display for Msg {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Msg::Round(stage) => write!(f, "{}", stage),
+            Msg::Bet { player, bet } => write!(f, "{} made bet {}", player, bet),
+            Msg::Misc(msg) => write!(f, "{}", msg),
+            Msg::Winner(winner) => write!(f, "Winner: {}", winner),
+        }
+    }
 }
 
 /// Enum for representing the winner(s) of a round.
@@ -37,6 +42,21 @@ pub enum Winner {
     },
     Draw(Vec<PlayerHand>),
 }
+impl Display for Winner {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Winner::Winner { name, hand, .. } => write!(f, "Winner: {} ({})", name, hand),
+            Winner::Draw(hands) => {
+                let names = hands
+                    .iter()
+                    .map(|phand| format!("{} ({})", phand.name, phand.best_hand))
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                write!(f, "Draw: {}", names)
+            }
+        }
+    }
+}
 
 /// Struct for the winner of the game
 #[derive(Debug)]
@@ -45,6 +65,15 @@ pub struct WinnerInfo {
     pub num_rounds: usize,
     pub winnings: usize,
 }
+impl Display for WinnerInfo {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{} won the game with {} winnings after {} rounds",
+            self.name, self.winnings, self.num_rounds
+        )
+    }
+}
 
 /// Struct for the winner of a round
 #[derive(Debug)]
@@ -52,6 +81,11 @@ pub struct RoundWinnerInfo {
     pub name: String,
     pub hand: Hand,
     pub winnings: usize,
+}
+impl Display for RoundWinnerInfo {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} won {} with {}", self.name, self.winnings, self.hand)
+    }
 }
 
 pub trait Actor: Debug {
@@ -95,14 +129,6 @@ impl Player {
         }
     }
 
-    /// Add the hole cards to the community cards.
-    fn add_hole_cards(&self, mut cards: Vec<Card>) -> Vec<Card> {
-        let (c1, c2) = self.hole.unwrap();
-        cards.push(c1);
-        cards.push(c2);
-        cards.clone()
-    }
-
     pub fn place_bet(
         &mut self,
         call: usize,
@@ -111,7 +137,6 @@ impl Player {
         stage: Stage,
         cycle: u8,
     ) -> Option<Bet> {
-        let cards = self.add_hole_cards(community_cards);
         let bet = self
             .actor
             .place_bet(
@@ -120,12 +145,15 @@ impl Player {
                 stage,
                 cycle,
                 self.bank_roll,
-                cards,
+                community_cards,
                 self.hole.unwrap(),
             )
             .unwrap();
         match bet {
-            Bet::Fold => Some(Bet::Fold),
+            Bet::Fold => {
+                self.folded = true;
+                Some(Bet::Fold)
+            }
             Bet::Check => Some(Bet::Check),
             Bet::Call => {
                 self.bank_roll -= call;

@@ -1,7 +1,0 @@
-pub mod poker_cli;
-
-use poker::game::Game;
-
-pub fn start_one_player() {
-    let game = Game::build(100, 6);
-}

@@ -1,7 +1,8 @@
 use poker::poker::{
+    betting_strategy::BetArgs,
     card::Card,
     compare::best_hand,
-    game::{Bet, Stage},
+    game::Bet,
     player::{Actor, Msg},
 };
 
@@ -13,27 +14,26 @@ impl Actor for CLIPlayer {
     /// Place a bet.
     fn place_bet(
         &mut self,
-        call: usize,
-        min: usize,
-        stage: Stage,
-        _cycle: u8,
-        bank_roll: usize,
-        community_cards: Vec<Card>,
+        args: BetArgs,
         hole_cards: (Card, Card),
+        bank_roll: usize,
     ) -> Option<Bet> {
-        let mut cards = community_cards.clone();
+        let mut cards = args.community_cards.clone();
         let (h1, h2) = (hole_cards.0, hole_cards.1);
         cards.push(h1);
         cards.push(h2);
         let bh = best_hand(&cards);
 
-        println!("It's your turn to place a bet in the {}.", stage);
+        println!("It's your turn to place a bet in the {}.", args.stage);
         println!("Hole cards: {}, {}", h1, h2);
-        if !community_cards.is_empty() {
+        if !args.community_cards.is_empty() {
             println!("Community cards:",);
-            community_cards.iter().for_each(|c| println!("{}", c));
+            args.community_cards.iter().for_each(|c| println!("{}", c));
         }
-        println!("The bet stands at {} (minimum amount to bet {})", call, min);
+        println!(
+            "The bet stands at {} (minimum amount to bet {})",
+            args.call, args.min
+        );
         println!("Bank roll: {}. Best hand: {}", bank_roll, bh);
         println!("Enter R(aise) <amount>, C(all), Ch(eck), A(ll in), F(old)");
         let mut input = String::new(); // A mutable String to hold the user input

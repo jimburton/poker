@@ -6,8 +6,8 @@ use crate::poker::player::{PlayerHand, Winner};
 use crate::poker::sequence::{group_by_rank, group_by_suit, longest_sequence, same_suit};
 
 /// Get the best hand from a collection of cards.
-pub fn best_hand(cards: &Vec<Card>) -> Hand {
-    let mut cs = cards.clone();
+pub fn best_hand(cards: &[Card]) -> Hand {
+    let mut cs = cards.to_owned();
     cs.sort_by(|a, b| b.rank.cmp(&a.rank));
     let ls = longest_sequence(&cs);
     let ranks = group_by_rank(cards);
@@ -29,12 +29,10 @@ pub fn best_hand(cards: &Vec<Card>) -> Hand {
         Hand::TwoPair(ranks[0][0].rank, ranks[1][0].rank)
     } else if !ranks.is_empty() && ranks[0].len() == 2 {
         Hand::OnePair(ranks[0][0].rank)
+    } else if let Some(c) = cards.iter().max() {
+        Hand::HighCard(c.rank)
     } else {
-        if let Some(c) = cards.iter().max() {
-            Hand::HighCard(c.rank)
-        } else {
-            panic!("Called best hand with empty set of cards.");
-        }
+        panic!("Called best hand with empty set of cards.");
     }
 }
 

@@ -1,3 +1,5 @@
+use player::{AutoActor, Player};
+
 pub mod betting_strategy;
 pub mod card;
 pub mod compare;
@@ -6,12 +8,37 @@ pub mod player;
 pub mod sequence;
 mod test_data;
 
-/// Rotates a vector (V) by a given index (I).
+/// Create a new game with one supplied player and the supplied number of auto players.
+/// Supply an interactive player to create a one player game.
+///
+/// TODO: uniquify names.
+pub fn new_game_one_player(player: Player, big_blind: usize, num_auto_players: u8) -> game::Game {
+    let mut g = game::Game::build(big_blind, num_auto_players + 1);
+    g.join(player).unwrap_or_else(|e| eprintln!("{e:?}"));
+    let prefix = "Player ".to_string();
+    for i in 1..=num_auto_players {
+        let mut name = prefix.clone();
+        name.push_str(&i.to_string());
+        let auto_player = Player::build(&name, AutoActor::new());
+        g.join(auto_player).unwrap_or_else(|e| eprintln!("{e:?}"));
+    }
+    g
+}
+
+/// Create a new game with the supplied players
+///
+/// TODO: uniquify names.
+pub fn new_game_with_players(players: Vec<Player>, big_blind: usize) -> game::Game {
+    let mut g = game::Game::build(big_blind, players.len() as u8);
+    for p in players {
+        g.join(p).unwrap_or_else(|e| eprintln!("{e:?}"));
+    }
+    g
+}
+
+/// Utility function that rotates a vector (V) by a given index (I).
 /// The rotation moves the elements starting from V[I] to the front,
 /// followed by the elements V[..I].
-///
-/// The index I is handled with modulo arithmetic to allow wrapping (e.g., an
-/// index of 7 on a 5-element vector is equivalent to an index of 2).
 ///
 /// # Type Parameters
 /// * `T`: The element type, which must implement `Clone` to allow copying

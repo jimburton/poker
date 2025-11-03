@@ -5,18 +5,17 @@ use crate::poker::game::{Bet, Stage};
 use super::compare::best_hand;
 use super::sequence::same_suit;
 
-/// Struct to carry the args needed by betting strategies,
-#[derive(Debug, Clone)]
-pub struct StrategyArgs {
+/// Struct for arguments to place_bet.
+#[derive(Clone)]
+pub struct BetArgs {
     pub call: usize,
     pub min: usize,
-    pub bank_roll: usize,
-    pub cards: Vec<Card>,
     pub stage: Stage,
     pub cycle: u8,
+    pub community_cards: Vec<Card>,
 }
 /// Type for betting strategies.
-pub type BettingStrategy = fn(StrategyArgs) -> Bet;
+pub type BettingStrategy = fn(BetArgs, (Card, Card), usize) -> Bet;
 
 /// Default betting strategy, which will:
 ///
@@ -24,11 +23,11 @@ pub type BettingStrategy = fn(StrategyArgs) -> Bet;
 /// + goes all in if neccessary,
 /// + check if possible,
 /// + call the bet.
-pub fn default_betting_strategy(args: StrategyArgs) -> Bet {
-    if args.bank_roll == 0 {
+pub fn default_betting_strategy(args: BetArgs, _hole_cards: (Card, Card), bank_roll: usize) -> Bet {
+    if bank_roll == 0 {
         Bet::Fold
-    } else if args.bank_roll <= args.call {
-        Bet::AllIn(args.bank_roll)
+    } else if bank_roll <= args.call {
+        Bet::AllIn(bank_roll)
     } else if args.call == 0 {
         Bet::Check
     } else {
@@ -42,11 +41,11 @@ pub fn default_betting_strategy(args: StrategyArgs) -> Bet {
 /// + goes all in if neccessary,
 /// + bet the minimum amount if currently zero,
 /// + call the bet.
-pub fn modest_betting_strategy(args: StrategyArgs) -> Bet {
-    if args.bank_roll == 0 {
+pub fn modest_betting_strategy(args: BetArgs, _hole_cards: (Card, Card), bank_roll: usize) -> Bet {
+    if bank_roll == 0 {
         Bet::Fold
-    } else if args.bank_roll <= args.call {
-        Bet::AllIn(args.bank_roll)
+    } else if bank_roll <= args.call {
+        Bet::AllIn(bank_roll)
     } else if args.call == 0 {
         Bet::Raise(args.min)
     } else {
@@ -57,13 +56,15 @@ pub fn modest_betting_strategy(args: StrategyArgs) -> Bet {
 /// A strategy that folds at the preflop for hands not in the top 15% of pairs of cards.
 /// If we do have a good pair of hole cards, then raise twice in each betting stage, so
 /// as we can afford it.
-pub fn six_max(args: StrategyArgs) -> Bet {
-    let mut cards = args.cards.clone();
+pub fn six_max(args: BetArgs, hole_cards: (Card, Card), bank_roll: usize) -> Bet {
+    let mut cards = args.community_cards.clone();
+    cards.push(hole_cards.0);
+    cards.push(hole_cards.1);
     cards.sort();
     let hand = best_hand(&cards);
-    let bet = std::cmp::min(args.bank_roll, args.call + args.min);
-    let folding = args.bank_roll == 0;
-    let all_in = args.bank_roll < args.call;
+    let bet = std::cmp::min(bank_roll, args.call + args.min);
+    let folding = bank_roll == 0;
+    let all_in = bank_roll < args.call;
     let raising = bet > args.call + args.min;
     fn make_bet(bet: usize, folding: bool, all_in: bool, raising: bool, cycle: u8) -> Bet {
         if folding {
@@ -78,30 +79,30 @@ pub fn six_max(args: StrategyArgs) -> Bet {
         }
     }
     if let Stage::PreFlop = args.stage {
-        let c1: Card = cards[0];
-        let c2: Card = cards[1];
+        // the only cards in cards are the hole cards.
         let same_suit = same_suit(&cards);
-        // if the hole cards are a pair, raise
+        // if the hole cards are a pair, raise.
         if let Hand::OnePair(..) = hand {
             make_bet(bet, folding, all_in, raising, args.cycle)
         } else {
-            match c1.rank {
+            let (h1, h2) = (hole_cards.0, hole_cards.1);
+            match h1.rank {
                 Rank::Ace => {
-                    if c2.rank > Rank::Rank10 || same_suit && c2.rank > Rank::Rank4 {
+                    if h2.rank > Rank::Rank10 || same_suit && h2.rank > Rank::Rank4 {
                         make_bet(bet, folding, all_in, raising, args.cycle)
                     } else {
                         Bet::Fold
                     }
                 }
                 Rank::King => {
-                    if c2.rank > Rank::Rank10 || same_suit && c2.rank > Rank::Rank9 {
+                    if h2.rank > Rank::Rank10 || same_suit && h2.rank > Rank::Rank9 {
                         make_bet(bet, folding, all_in, raising, args.cycle)
                     } else {
                         Bet::Fold
                     }
                 }
                 Rank::Queen => {
-                    if c2.rank > Rank::Rank10 {
+                    if h2.rank > Rank::Rank10 {
                         make_bet(bet, folding, all_in, raising, args.cycle)
                     } else {
                         Bet::Fold

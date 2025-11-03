@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use crate::poker::card::{Card, Rank, Suit};
 
 /// Find the longest continuous sequence in a collection of cards.
-pub fn longest_sequence(cards: &Vec<Card>) -> Vec<Card> {
+pub fn longest_sequence(cards: &[Card]) -> Vec<Card> {
     if cards.is_empty() {
         return Vec::new();
     }
@@ -92,14 +92,14 @@ pub fn longest_sequence(cards: &Vec<Card>) -> Vec<Card> {
 }
 
 /// Group a collection of cards by their rank.
-pub fn group_by_rank(cards: &Vec<Card>) -> Vec<Vec<Card>> {
+pub fn group_by_rank(cards: &[Card]) -> Vec<Vec<Card>> {
     let mut grouped_by_rank: HashMap<Rank, Vec<Card>> = HashMap::new();
 
     for card in cards.iter() {
         grouped_by_rank
             .entry(card.rank)
             // if the key doesn't exist, insert a new vec
-            .or_insert_with(Vec::new)
+            .or_default()
             // push the current card
             .push(*card);
     }
@@ -109,14 +109,14 @@ pub fn group_by_rank(cards: &Vec<Card>) -> Vec<Vec<Card>> {
 }
 
 /// Group a collection of cards by their suit.
-pub fn group_by_suit(cards: &Vec<Card>) -> Vec<Vec<Card>> {
+pub fn group_by_suit(cards: &[Card]) -> Vec<Vec<Card>> {
     let mut grouped_by_suit: HashMap<Suit, Vec<Card>> = HashMap::new();
 
     for card in cards.iter() {
         grouped_by_suit
             .entry(card.suit)
             // if the key doesn't exist, insert a new vec
-            .or_insert_with(Vec::new)
+            .or_default()
             // push the current card
             .push(*card);
     }
@@ -130,7 +130,7 @@ pub fn group_by_suit(cards: &Vec<Card>) -> Vec<Vec<Card>> {
 }
 
 /// Predicate for a collection of cards being of the same suit.
-pub fn same_suit(cards: &Vec<Card>) -> bool {
+pub fn same_suit(cards: &[Card]) -> bool {
     if cards.is_empty() {
         true
     } else {

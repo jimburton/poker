@@ -1,13 +1,15 @@
 /// Datatypes and functions for the game and individual rounds.
-use crate::poker::card::{new_deck, Card};
+use crate::poker::card::{Card, new_deck};
 use crate::poker::compare::{best_hand, compare_hands};
-use crate::poker::player::{Msg, Player, PlayerHand, Winner, WinnerInfo};
+use crate::poker::player::{Msg, Player, PlayerHand, Winner};
 use crate::poker::rotate_vector;
 use num_traits::ToPrimitive;
 use rand::rng;
 use rand::seq::SliceRandom;
 use std::collections::HashMap;
 use std::fmt::{self, Display};
+
+use super::betting_strategy::BetArgs;
 
 /// Enum for representing the stage of a round.
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -176,7 +178,7 @@ impl Game {
             let players_order: Vec<String> = self.players_order.clone();
             self.dealer = Some(players_order.first().unwrap().clone());
         }
-        let dealer = self.dealer.as_ref().clone();
+        let dealer = self.dealer.as_ref();
         if self.players.contains_key(dealer.unwrap()) {
             let pos = self
                 .players_order
@@ -230,21 +232,21 @@ impl Game {
             let left_of_dealer: &String = players_order.first().unwrap();
 
             // Mutably borrow the player and execute the action
-            if let Some(first_p) = self.players.get_mut(left_of_dealer) {
-                if let Some(blind) = first_p.ante_up(self.small_blind) {
-                    self.pot += blind;
-                }
-                // NB: player marks themself as folded if they responded negatively
-                // or as all in if their bank roll was less than the blind.
+            if let Some(first_p) = self.players.get_mut(left_of_dealer)
+                && let Some(blind) = first_p.ante_up(self.small_blind)
+            {
+                self.pot += blind;
             }
+            // NB: player marks themself as folded if they responded negatively
+            // or as all in if their bank roll was less than the blind.
         }
 
         // Handle the remaining players.
         players_order[1..].iter().for_each(|name| {
-            if let Some(p) = self.players.get_mut(name) {
-                if let Some(blind) = p.ante_up(self.big_blind) {
-                    self.pot += blind
-                }
+            if let Some(p) = self.players.get_mut(name)
+                && let Some(blind) = p.ante_up(self.big_blind)
+            {
+                self.pot += blind
             }
         });
     }
@@ -346,7 +348,14 @@ impl Game {
                 }
                 cycle += 1;
                 let ccards = self.community_cards.clone();
-                let bet_opt = p.place_bet(call, min, ccards, self.stage, cycle);
+                let args = BetArgs {
+                    call,
+                    min,
+                    stage: self.stage,
+                    cycle,
+                    community_cards: ccards,
+                };
+                let bet_opt = p.place_bet(args);
 
                 let bet = bet_opt.unwrap();
 
@@ -858,11 +867,6 @@ impl Game {
             self.players.remove(name);
         }
     }
-}
-
-/// Create a new game.
-pub fn new_game(buy_in: usize, num_players: u8) -> Game {
-    Game::build(buy_in, num_players)
 }
 
 #[cfg(test)]

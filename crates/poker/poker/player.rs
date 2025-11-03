@@ -1,10 +1,10 @@
 /// Datatypes and functions for players in the game.
 use crate::poker::betting_strategy;
+use crate::poker::betting_strategy::{BetArgs, BettingStrategy};
 use crate::poker::card::{Card, Hand};
 use crate::poker::game::{Bet, Stage};
 use std::fmt::{self, Debug, Display};
 
-use super::betting_strategy::{BettingStrategy, StrategyArgs};
 #[derive(Debug, Clone)]
 pub struct PlayerHand {
     pub name: String,
@@ -55,33 +55,15 @@ impl Display for Winner {
         }
     }
 }
-
-/// Enum for information about winners.
-#[derive(Debug, Clone)]
-pub struct WinnerInfo {
-    pub name: String,
-    pub num_rounds: usize,
-    pub hand: Hand,
-}
-/// Implementation of Display trait for WinnerInfo.
-impl Display for WinnerInfo {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} won with {}", self.name, self.hand)
-    }
-}
 /// The Actor trait is the component part of players which places bets
 /// and responds to messages.
 pub trait Actor: Debug {
     /// Place a bet.
     fn place_bet(
         &mut self,
-        call: usize,
-        min: usize,
-        stage: Stage,
-        cycle: u8,
-        bank_roll: usize,
-        community_cards: Vec<Card>,
+        args: BetArgs,
         hole_cards: (Card, Card),
+        bank_roll: usize,
     ) -> Option<Bet>;
 
     /// Receive an update message, e.g. the status of the game or information about the
@@ -114,25 +96,10 @@ impl Player {
         }
     }
     /// Place a bet by asking the actor to do it.
-    pub fn place_bet(
-        &mut self,
-        call: usize,
-        min: usize,
-        community_cards: Vec<Card>,
-        stage: Stage,
-        cycle: u8,
-    ) -> Option<Bet> {
+    pub fn place_bet(&mut self, args: BetArgs) -> Option<Bet> {
         let bet = self
             .actor
-            .place_bet(
-                call,
-                min,
-                stage,
-                cycle,
-                self.bank_roll,
-                community_cards,
-                self.hole.unwrap(),
-            )
+            .place_bet(args.clone(), self.hole.unwrap(), self.bank_roll)
             .unwrap();
         match bet {
             Bet::Fold => {
@@ -141,7 +108,7 @@ impl Player {
             }
             Bet::Check => Some(Bet::Check),
             Bet::Call => {
-                self.bank_roll -= call;
+                self.bank_roll -= args.clone().call;
                 Some(Bet::Call)
             }
             Bet::Raise(n) => {
@@ -191,9 +158,15 @@ impl AutoActor {
             betting_strategy: betting_strategy::default_betting_strategy,
         }
     }
-    /// Construct a new Player instance wit the supplied strategy.
+    /// Construct a new Player instance with the supplied strategy.
     pub fn build(betting_strategy: BettingStrategy) -> Self {
         AutoActor { betting_strategy }
+    }
+}
+/// Implementation of Default trait for AutoActor.
+impl Default for AutoActor {
+    fn default() -> Self {
+        Self::new()
     }
 }
 /// Implementation of the Actor trait for AutoActor.
@@ -201,28 +174,16 @@ impl Actor for AutoActor {
     /// Place a bet using the betting strategy.
     fn place_bet(
         &mut self,
-        call: usize,
-        min: usize,
-        stage: Stage,
-        cycle: u8,
-        bank_roll: usize,
-        community_cards: Vec<Card>,
+        args: BetArgs,
         hole_cards: (Card, Card),
+        bank_roll: usize,
     ) -> Option<Bet> {
-        let mut cards = community_cards.clone();
-        let (h1, h2) = hole_cards;
-        cards.push(h1);
-        cards.push(h2);
+        //let mut cards = args.community_cards.clone();
+        //let (h1, h2) = hole_cards;
+        //cards.push(h1);
+        //cards.push(h2);
         let strategy = self.betting_strategy;
-        let args = StrategyArgs {
-            call,
-            min,
-            bank_roll,
-            cards,
-            stage,
-            cycle,
-        };
-        Some(strategy(args))
+        Some(strategy(args, hole_cards, bank_roll))
     }
 
     /// Accept a message and do nothing with it.

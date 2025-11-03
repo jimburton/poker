@@ -5,7 +5,6 @@ edition = "2024"
 
 [[bin]]
 name = "poker_cli"
-test = false
 path = "main.rs"
 
 [dependencies]

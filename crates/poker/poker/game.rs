@@ -873,7 +873,7 @@ impl Game {
 mod tests {
     use super::*;
     use crate::poker::{
-        betting_strategy::StrategyArgs,
+        betting_strategy::BetArgs,
         card::{Card, Hand, Rank, Suit},
         player::AutoActor,
     };
@@ -953,7 +953,7 @@ mod tests {
     fn test_place_bets_default_strategy() {
         let mut game = Game::build(20, 2);
         let _ = game.join(Player::build("player1", AutoActor::new()));
-        let _ = game.join(Player::build("player2", AutoActor::build(strategy)));
+        let _ = game.join(Player::build("player2", AutoActor::build(test_strategy)));
         game.order_players();
         game.deal_hole_cards();
 
@@ -973,20 +973,6 @@ mod tests {
                 p.bank_roll
             );
         });
-
-        // Test with a player who bets once.
-        // make a strategy that will place a bet if the call is zero
-        fn strategy(args: StrategyArgs) -> Bet {
-            if args.bank_roll == 0 {
-                Bet::Fold
-            } else if args.bank_roll <= args.call {
-                Bet::AllIn(args.bank_roll)
-            } else if args.call == 0 {
-                Bet::Raise(args.min)
-            } else {
-                Bet::Call
-            }
-        }
         game.place_bets();
         assert!(
             game.pot == 80,
@@ -1003,11 +989,11 @@ mod tests {
     }
 
     // A betting strategy that will place a bet if the call is zero
-    fn test_strategy(args: StrategyArgs) -> Bet {
-        if args.bank_roll == 0 {
+    fn test_strategy(args: BetArgs, _hole_cards: (Card, Card), bank_roll: usize) -> Bet {
+        if bank_roll == 0 {
             Bet::Fold
-        } else if args.bank_roll <= args.call {
-            Bet::AllIn(args.bank_roll)
+        } else if bank_roll <= args.call {
+            Bet::AllIn(bank_roll)
         } else if args.call == 0 {
             Bet::Raise(args.min)
         } else {

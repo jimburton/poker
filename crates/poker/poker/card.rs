@@ -1,8 +1,9 @@
 /// Types and functions relating to cards.
+use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display};
 
 /// The rank of a card.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash, Serialize, Deserialize)]
 pub enum Rank {
     Rank2 = 2,
     Rank3 = 3,
@@ -59,7 +60,7 @@ impl Rank {
 }
 
 /// The suit of a card.
-#[derive(Debug, Eq, Ord, PartialEq, PartialOrd, Clone, Copy, Hash)]
+#[derive(Debug, Eq, Ord, PartialEq, PartialOrd, Clone, Copy, Hash, Serialize, Deserialize)]
 pub enum Suit {
     Clubs,
     Spades,
@@ -85,7 +86,7 @@ impl Display for Suit {
 }
 
 /// A card has a rank and a suit.
-#[derive(Debug, Eq, Ord, PartialEq, PartialOrd, Clone, Copy)]
+#[derive(Debug, Eq, Ord, PartialEq, PartialOrd, Clone, Copy, Serialize, Deserialize)]
 pub struct Card {
     pub rank: Rank,
     pub suit: Suit,
@@ -99,7 +100,7 @@ impl Display for Card {
 
 /// A poker hand, ranked from lowest to highest. Assuming there are no wild cards allowed,
 /// and so no five of a kind.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Serialize, Deserialize)]
 pub enum Hand {
     HighCard(Rank),
     OnePair(Rank),

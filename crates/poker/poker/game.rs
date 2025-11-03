@@ -6,13 +6,14 @@ use crate::poker::rotate_vector;
 use num_traits::ToPrimitive;
 use rand::rng;
 use rand::seq::SliceRandom;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::{self, Display};
 
 use super::betting_strategy::BetArgs;
 
 /// Enum for representing the stage of a round.
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
 pub enum Stage {
     Blinds,
     Hole,
@@ -38,7 +39,7 @@ impl Display for Stage {
 }
 
 /// Enum for representing a bet.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum Bet {
     Fold,
     Check,

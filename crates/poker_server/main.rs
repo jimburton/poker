@@ -1,19 +1,36 @@
 use axum::Router;
-use axum::extract::ws::CloseFrame;
+use axum::extract::ws::{CloseFrame, Utf8Bytes};
 use axum::{
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
     response::IntoResponse,
     routing::get,
 };
+use poker::poker::card::Hand;
+use poker::poker::game::{Bet, Stage};
+use serde::{Deserialize, Serialize};
 
-// WebSocketUpgrade: Extractor for establishing WebSocket connections.
+/// Struct for duplex communication.
+#[derive(Debug, Serialize, Deserialize)]
+pub enum PokerMessage {
+    // Client -> Server messages
+    NewGame { name: String },
+    JoinGame { game_id: String, username: String },
+    PlayerAction { action_type: String, amount: usize },
+
+    // Server -> Client messages
+    StageUpdate { stage: Stage },
+    PlayerUpdate { player: String, bet: Bet },
+    RoundUpdate { winner: String, hand: Hand },
+    Error(String),
+}
+/// Extractor for establishing WebSocket connections.
 async fn websocket_handler(ws: WebSocketUpgrade) -> impl IntoResponse {
     // Finalize upgrading the connection and call the provided callback with the stream.
     ws.on_failed_upgrade(|error| println!("Error upgrading websocket: {}", error))
         .on_upgrade(handle_socket)
 }
 
-// WebSocket: A stream of WebSocket messages.
+/// A stream of WebSocket messages.
 async fn handle_socket(mut socket: WebSocket) {
     // Returns `None` if the stream has closed.
     while let Some(msg) = socket.recv().await {
@@ -21,10 +38,16 @@ async fn handle_socket(mut socket: WebSocket) {
             match msg {
                 Message::Text(utf8_bytes) => {
                     println!("Text received: {}", utf8_bytes);
+                    let dec = deserialise(&utf8_bytes);
+                    println!("Received: {:?}", dec);
+                    let msg = PokerMessage::PlayerUpdate {
+                        player: "James".to_string(),
+                        bet: Bet::Raise(200),
+                    };
                     let result = socket
-                        .send(Message::Text(
-                            format!("Echo back text: {}", utf8_bytes).into(),
-                        ))
+                        .send(Message::Text(Utf8Bytes::from(
+                            serde_json::to_string(&msg).unwrap(),
+                        )))
                         .await;
                     if let Err(error) = result {
                         println!("Error sending: {}", error);
@@ -47,11 +70,6 @@ async fn handle_socket(mut socket: WebSocket) {
                         break;
                     }
                 }
-                // Close, Ping, Pong will be handled automatically
-                // Message::Close
-                // After receiving a close frame, axum will automatically respond with a close frame if necessary (you do not have to deal with this yourself).
-                // After sending a close frame, you may still read messages, but attempts to send another message will error.
-                // Since no further messages will be received, you may either do nothing or explicitly drop the connection.
                 _ => {}
             }
         } else {
@@ -63,14 +81,7 @@ async fn handle_socket(mut socket: WebSocket) {
     }
 }
 
-// We MAY uncleanly close a WebSocket connection at any time by simply dropping the WebSocket, ie: Break out of the recv loop.
-// However, you may also use the graceful closing protocol, in which
-// peer A sends a close frame, and does not send any further messages;
-// peer B responds with a close frame, and does not send any further messages;
-// peer A processes the remaining messages sent by peer B, before finally
-// both peers close the connection.
-//
-// Close Code: https://kapeli.com/cheat_sheets/WebSocket_Status_Codes.docset/Contents/Resources/Documents/index
+// Graceful closing protocol.
 async fn send_close_message(mut socket: WebSocket, code: u16, reason: &str) {
     _ = socket
         .send(Message::Close(Some(CloseFrame {
@@ -78,6 +89,12 @@ async fn send_close_message(mut socket: WebSocket, code: u16, reason: &str) {
             reason: reason.into(),
         })))
         .await;
+}
+
+fn deserialise(utf8_bytes: &Utf8Bytes) -> PokerMessage {
+    let msg = str::from_utf8(utf8_bytes.as_bytes()).unwrap();
+    let o = serde_json::from_str(msg).unwrap();
+    o
 }
 
 #[tokio::main]

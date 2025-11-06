@@ -1,14 +1,13 @@
 mod server;
 use crate::server::game::game_handler;
-use axum::Router;
-use axum::extract::ws::{CloseFrame, Utf8Bytes};
 use axum::{
+    Router,
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
     response::IntoResponse,
     routing::get,
 };
-use poker::poker::game::Bet;
 use serde::{Deserialize, Serialize};
+use server::{deserialise_gamerequest, send_close_message};
 
 /// Enum for join game messages only.
 #[derive(Debug, Serialize, Deserialize)]
@@ -27,18 +26,19 @@ async fn websocket_handler(ws: WebSocketUpgrade) -> impl IntoResponse {
 /// A stream of WebSocket messages.
 async fn handle_socket(mut socket: WebSocket) {
     // Returns `None` if the stream has closed.
-    while let Some(msg) = socket.recv().await {
+    if let Some(msg) = socket.recv().await {
         if let Ok(msg) = msg {
             match msg {
                 Message::Text(utf8_bytes) => {
                     println!("Text received: {}", utf8_bytes);
-                    let dec = deserialise(&utf8_bytes);
+                    let dec = deserialise_gamerequest(&utf8_bytes);
                     println!("Received: {:?}", dec);
+                    let runtime_handle = tokio::runtime::Handle::current();
                     match dec {
                         GameRequest::NewGame { name } => {
-                            let result = game_handler(name, socket).await;
+                            game_handler(name, socket, runtime_handle).await;
                         }
-                        GameRequest::JoinGame { game_id, username } => {}
+                        GameRequest::JoinGame { .. } => {}
                     }
                     /*let msg = PokerMessage::PlayerUpdate {
                         player: "James".to_string(),
@@ -57,45 +57,14 @@ async fn handle_socket(mut socket: WebSocket) {
                         break;
                     }*/
                 }
-                Message::Binary(bytes) => {
-                    println!("Received bytes of length: {}", bytes.len());
-                    let result = socket
-                        .send(Message::Text(
-                            format!("Received bytes of length: {}", bytes.len()).into(),
-                        ))
-                        .await;
-                    if let Err(error) = result {
-                        println!("Error sending: {}", error);
-                        send_close_message(socket, 1011, &format!("Error occured: {}", error))
-                            .await;
-                        break;
-                    }
-                }
-                _ => {}
+                _ => {} // ignore binary, ping, pong
             }
         } else {
             let error = msg.err().unwrap();
             println!("Error receiving message: {:?}", error);
             send_close_message(socket, 1011, &format!("Error occured: {}", error)).await;
-            break;
         }
     }
-}
-
-// Graceful closing protocol.
-async fn send_close_message(mut socket: WebSocket, code: u16, reason: &str) {
-    _ = socket
-        .send(Message::Close(Some(CloseFrame {
-            code,
-            reason: reason.into(),
-        })))
-        .await;
-}
-
-fn deserialise(utf8_bytes: &Utf8Bytes) -> GameRequest {
-    let msg = str::from_utf8(utf8_bytes.as_bytes()).unwrap();
-    let o = serde_json::from_str(msg).unwrap();
-    o
 }
 
 #[tokio::main]

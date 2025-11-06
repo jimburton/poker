@@ -4,9 +4,10 @@ use crate::poker::game::{Bet, Stage};
 
 use super::compare::best_hand;
 use super::sequence::same_suit;
+use serde::{Deserialize, Serialize};
 
 /// Struct for arguments to place_bet.
-#[derive(Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BetArgs {
     pub call: usize,
     pub min: usize,

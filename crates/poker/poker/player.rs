@@ -3,16 +3,17 @@ use crate::poker::betting_strategy;
 use crate::poker::betting_strategy::{BetArgs, BettingStrategy};
 use crate::poker::card::{Card, Hand};
 use crate::poker::game::{Bet, Stage};
+use serde::{Deserialize, Serialize};
 use std::fmt::{self, Debug, Display};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayerHand {
     pub name: String,
     pub hand: Hand,
     pub cards: Vec<Card>,
 }
 /// Messages to send to players.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Msg {
     Bet { player: String, bet: Bet },
     Misc(String),
@@ -32,7 +33,7 @@ impl Display for Msg {
 }
 
 /// Enum for representing the winner(s) of a round.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Winner {
     Winner(PlayerHand),
     Draw(Vec<PlayerHand>),

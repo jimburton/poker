@@ -7,6 +7,11 @@ Connected (press CTRL+C to quit)
 > Hello
 < Echo back text: Hello
 
+Form of the serialised structs:
+
+> {"NewGame":{"name":"James"}}
+< {"PlayerUpdate":{"player":"James","bet":{"Raise":200}}}
+
 web client
 
 npm ci

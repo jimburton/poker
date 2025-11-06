@@ -1,3 +1,5 @@
+mod server;
+use crate::server::game::game_handler;
 use axum::Router;
 use axum::extract::ws::{CloseFrame, Utf8Bytes};
 use axum::{
@@ -5,24 +7,16 @@ use axum::{
     response::IntoResponse,
     routing::get,
 };
-use poker::poker::card::Hand;
-use poker::poker::game::{Bet, Stage};
+use poker::poker::game::Bet;
 use serde::{Deserialize, Serialize};
 
-/// Struct for duplex communication.
+/// Enum for join game messages only.
 #[derive(Debug, Serialize, Deserialize)]
-pub enum PokerMessage {
-    // Client -> Server messages
+pub enum GameRequest {
     NewGame { name: String },
     JoinGame { game_id: String, username: String },
-    PlayerAction { action_type: String, amount: usize },
-
-    // Server -> Client messages
-    StageUpdate { stage: Stage },
-    PlayerUpdate { player: String, bet: Bet },
-    RoundUpdate { winner: String, hand: Hand },
-    Error(String),
 }
+
 /// Extractor for establishing WebSocket connections.
 async fn websocket_handler(ws: WebSocketUpgrade) -> impl IntoResponse {
     // Finalize upgrading the connection and call the provided callback with the stream.
@@ -40,10 +34,17 @@ async fn handle_socket(mut socket: WebSocket) {
                     println!("Text received: {}", utf8_bytes);
                     let dec = deserialise(&utf8_bytes);
                     println!("Received: {:?}", dec);
-                    let msg = PokerMessage::PlayerUpdate {
+                    match dec {
+                        GameRequest::NewGame { name } => {
+                            let result = game_handler(name, socket).await;
+                        }
+                        GameRequest::JoinGame { game_id, username } => {}
+                    }
+                    /*let msg = PokerMessage::PlayerUpdate {
                         player: "James".to_string(),
                         bet: Bet::Raise(200),
                     };
+
                     let result = socket
                         .send(Message::Text(Utf8Bytes::from(
                             serde_json::to_string(&msg).unwrap(),
@@ -54,7 +55,7 @@ async fn handle_socket(mut socket: WebSocket) {
                         send_close_message(socket, 1011, &format!("Error occured: {}", error))
                             .await;
                         break;
-                    }
+                    }*/
                 }
                 Message::Binary(bytes) => {
                     println!("Received bytes of length: {}", bytes.len());
@@ -91,7 +92,7 @@ async fn send_close_message(mut socket: WebSocket, code: u16, reason: &str) {
         .await;
 }
 
-fn deserialise(utf8_bytes: &Utf8Bytes) -> PokerMessage {
+fn deserialise(utf8_bytes: &Utf8Bytes) -> GameRequest {
     let msg = str::from_utf8(utf8_bytes.as_bytes()).unwrap();
     let o = serde_json::from_str(msg).unwrap();
     o

@@ -28,20 +28,18 @@ async fn handle_socket(mut socket: WebSocket) {
     // Returns `None` if the stream has closed.
     if let Some(msg) = socket.recv().await {
         if let Ok(msg) = msg {
-            match msg {
-                Message::Text(utf8_bytes) => {
-                    println!("Text received: {}", utf8_bytes);
-                    let dec = deserialise_gamerequest(&utf8_bytes);
-                    println!("Received: {:?}", dec);
-                    let runtime_handle = tokio::runtime::Handle::current();
-                    match dec {
-                        GameRequest::NewGame { name } => {
-                            game_handler(name, socket, runtime_handle).await;
-                        }
-                        GameRequest::JoinGame { .. } => {}
+            if let Message::Text(utf8_bytes) = msg {
+                println!("Text received: {}", utf8_bytes);
+                let dec = deserialise_gamerequest(&utf8_bytes);
+                println!("Received: {:?}", dec);
+                let runtime_handle = tokio::runtime::Handle::current();
+                match dec {
+                    GameRequest::NewGame { name } => {
+                        game_handler(name, socket, runtime_handle).await;
                     }
+                    GameRequest::JoinGame { .. } => {}
                 }
-                _ => {} // ignore binary, ping, pong
+                // ignore binary, ping, pong
             }
         } else {
             let error = msg.err().unwrap();

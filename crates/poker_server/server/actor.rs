@@ -24,10 +24,6 @@ type BetRequest = (BetArgs, (Card, Card), usize, oneshot::Sender<Option<Bet>>);
 #[derive(Debug, Serialize, Deserialize)]
 pub enum PokerMessage {
     // Client -> Server messages
-    PlayerAction {
-        action_type: String,
-        amount: usize,
-    },
     PlayerBet(Bet),
 
     // Server -> Client messages
@@ -58,7 +54,6 @@ async fn start_socket_loop(
     mut update_rx: mpsc::Receiver<PokerMessage>,
     mut bet_rx: mpsc::Receiver<BetRequest>,
 ) {
-    println!("socket_loop: placing bet");
     // Run the loop indefinitely until the socket closes or an error occurs
     loop {
         tokio::select! {
@@ -159,7 +154,6 @@ async fn start_socket_loop(
         }
     }
     // Clean up or log closure here
-    println!("WebSocket loop finished.");
 }
 
 /// The Synchronous Facade struct that implements the Actor trait.
@@ -194,7 +188,6 @@ impl Actor for RemoteActor {
         hole_cards: (Card, Card),
         bank_roll: usize,
     ) -> Option<Bet> {
-        println!("RemoteActor::place_bet");
         // Create a standard library blocking MPSC channel for the final result.
         // This is safe for blocking the calling thread, even if it's a Tokio worker.
         let (sync_tx, sync_rx) = std_mpsc::channel();

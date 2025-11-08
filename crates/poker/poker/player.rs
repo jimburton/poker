@@ -18,6 +18,7 @@ pub enum Msg {
     PlayersInfo(Vec<(String, usize)>), // (name, bank roll)
     Misc(String),
     Game(Winner),
+    RoundWinner(Winner),
     Round(Stage),
 }
 /// Implementation of Display trait for Msg.
@@ -30,7 +31,7 @@ impl Display for Msg {
                     f,
                     "Playing with {}",
                     players
-                        .into_iter()
+                        .iter()
                         .map(|(player_name, bank_roll)| player_name.clone()
                             + " ("
                             + &bank_roll.to_string()
@@ -40,7 +41,8 @@ impl Display for Msg {
                 )
             }
             Msg::Misc(msg) => write!(f, "{}", msg),
-            Msg::Game(winner) => write!(f, "{}", winner),
+            Msg::Game(winner) => write!(f, "Won the game: {}", winner),
+            Msg::RoundWinner(winner) => write!(f, "Won the round: {}", winner),
             Msg::Round(stage) => write!(f, "{}", stage),
         }
     }

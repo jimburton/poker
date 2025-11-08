@@ -26,12 +26,10 @@ async fn websocket_handler(ws: WebSocketUpgrade) -> impl IntoResponse {
 /// A stream of WebSocket messages.
 async fn handle_socket(mut socket: WebSocket) {
     // Returns `None` if the stream has closed.
-    println!("handle_socket: new connection");
     if let Some(msg) = socket.recv().await {
         if let Ok(msg) = msg {
             // We only consider text messages. Ignore binary, ping, pong.
             if let Message::Text(utf8_bytes) = msg {
-                println!("Text received: {}", utf8_bytes);
                 if let Some(game_request) = safe_deserialise(&utf8_bytes) {
                     println!("Received: {:?}", game_request);
                     let runtime_handle = tokio::runtime::Handle::current();

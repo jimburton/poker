@@ -12,6 +12,7 @@ use std::{
     collections::HashMap,
     fmt::{self, Display},
 };
+use uuid::{Uuid, uuid};
 
 use super::betting_strategy::BetArgs;
 
@@ -87,6 +88,7 @@ pub struct Game {
     winner: Option<Winner>,
     stage: Stage,
     num_rounds: usize,
+    uuid: uuid::Uuid,
 }
 
 /// Implementation for the Game struct.
@@ -107,6 +109,7 @@ impl Game {
             winner: None,
             stage: Stage::Blinds,
             num_rounds: 0,
+            uuid: Uuid::new_v4(),
         };
         let mut deck = new_deck();
         let mut rng = rng();
@@ -182,7 +185,7 @@ impl Game {
     /// Announce the winner at the end of the round.
     fn announce_winner_round(&self) {
         let w = self.winner.as_ref().unwrap();
-        let msg = Msg::Game(w.clone());
+        let msg = Msg::RoundWinner(w.clone());
         self.update_players(&msg);
     }
 

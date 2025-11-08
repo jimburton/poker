@@ -40,22 +40,6 @@ async fn handle_socket(mut socket: WebSocket) {
                         }
                         GameRequest::JoinGame { .. } => {}
                     }
-                    /*let msg = PokerMessage::PlayerUpdate {
-                        player: "James".to_string(),
-                        bet: Bet::Raise(200),
-                    };
-
-                    let result = socket
-                        .send(Message::Text(Utf8Bytes::from(
-                            serde_json::to_string(&msg).unwrap(),
-                        )))
-                        .await;
-                    if let Err(error) = result {
-                        println!("Error sending: {}", error);
-                        send_close_message(socket, 1011, &format!("Error occured: {}", error))
-                            .await;
-                        break;
-                    }*/
                 }
                 _ => {} // ignore binary, ping, pong
             }

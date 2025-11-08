@@ -2,8 +2,10 @@
 use std::cmp::Ordering;
 
 use crate::poker::card::{Card, Hand};
-use crate::poker::player::{PlayerHand, Winner};
-use crate::poker::sequence::{group_by_rank, group_by_suit, longest_sequence, same_suit};
+use crate::poker::{
+    player::{PlayerHand, Winner},
+    sequence::{group_by_rank, group_by_suit, longest_sequence, same_suit},
+};
 
 /// Get the best hand from a collection of cards.
 pub fn best_hand(cards: &[Card]) -> Hand {

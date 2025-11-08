@@ -1,14 +1,17 @@
 /// Datatypes and functions for the game and individual rounds.
-use crate::poker::card::{Card, new_deck};
-use crate::poker::compare::{best_hand, compare_hands};
-use crate::poker::player::{Msg, Player, PlayerHand, Winner};
-use crate::poker::rotate_vector;
+use crate::poker::{
+    card::{Card, new_deck},
+    compare::{best_hand, compare_hands},
+    player::{Msg, Player, PlayerHand, Winner},
+    rotate_vector,
+};
 use num_traits::ToPrimitive;
-use rand::rng;
-use rand::seq::SliceRandom;
+use rand::{rng, seq::SliceRandom};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fmt::{self, Display};
+use std::{
+    collections::HashMap,
+    fmt::{self, Display},
+};
 
 use super::betting_strategy::BetArgs;
 

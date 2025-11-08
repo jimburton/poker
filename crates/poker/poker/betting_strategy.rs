@@ -1,6 +1,8 @@
 /// Betting strategies to be used by players.
-use crate::poker::card::{Card, Hand, Rank};
-use crate::poker::game::{Bet, Stage};
+use crate::poker::{
+    card::{Card, Hand, Rank},
+    game::{Bet, Stage},
+};
 
 use super::compare::best_hand;
 use super::sequence::same_suit;

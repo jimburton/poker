@@ -1,13 +1,17 @@
 use crate::server::deserialise_pokermessage;
 use axum::extract::ws::{Message, Utf8Bytes, WebSocket};
-use poker::poker::betting_strategy::BetArgs;
-use poker::poker::card::{Card, Hand};
-use poker::poker::compare::best_hand;
-use poker::poker::game::Bet;
-use poker::poker::player::{Actor, Msg};
+use poker::poker::{
+    betting_strategy::BetArgs,
+    card::{Card, Hand},
+    compare::best_hand,
+    game::Bet,
+    player::{Actor, Msg},
+};
 use serde::{Deserialize, Serialize};
-use tokio::runtime::Handle;
-use tokio::sync::{mpsc, oneshot};
+use tokio::{
+    runtime::Handle,
+    sync::{mpsc, oneshot},
+};
 
 // --- CONSTANTS ---
 // We use mpsc for Server Updates -> WebSocket

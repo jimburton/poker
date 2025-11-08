@@ -1,6 +1,8 @@
 /// Functions for generating and organising sequences of cards.
-use std::cmp::Reverse;
-use std::collections::{HashMap, HashSet};
+use std::{
+    cmp::Reverse,
+    collections::{HashMap, HashSet},
+};
 
 use crate::poker::card::{Card, Rank, Suit};
 

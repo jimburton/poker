@@ -1,7 +1,6 @@
 use crate::server::actor::RemoteActor;
 use axum::extract::ws::WebSocket;
-use poker::poker::new_game_one_player;
-use poker::poker::player::Player;
+use poker::poker::{new_game_one_player, player::Player};
 use tokio::runtime::Handle;
 
 pub async fn game_handler(player_name: String, socket: WebSocket, runtime_handle: Handle) {

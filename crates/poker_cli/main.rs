@@ -1,10 +1,12 @@
-mod poker_cli;
+mod cli;
 
-use poker::poker::betting_strategy::{modest_betting_strategy, six_max};
-use poker::poker::game::Game;
-use poker::poker::new_game_with_players;
-use poker::poker::player::{AutoActor, Player};
-use poker_cli::player::CLIPlayer;
+use cli::player::CLIPlayer;
+use poker::poker::{
+    betting_strategy::{modest_betting_strategy, six_max},
+    game::Game,
+    new_game_with_players,
+    player::{AutoActor, Player},
+};
 
 fn main() {
     let players = vec![

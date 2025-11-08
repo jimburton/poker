@@ -1,5 +1,6 @@
 use player::{AutoActor, Player};
 
+pub mod autoactor;
 pub mod betting_strategy;
 pub mod card;
 pub mod compare;

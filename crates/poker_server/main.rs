@@ -7,7 +7,7 @@ use axum::{
     routing::get,
 };
 use serde::{Deserialize, Serialize};
-use server::{deserialise_gamerequest, send_close_message};
+use server::{safe_deserialise, send_close_message};
 
 /// Enum for join game messages only.
 #[derive(Debug, Serialize, Deserialize)]
@@ -26,20 +26,22 @@ async fn websocket_handler(ws: WebSocketUpgrade) -> impl IntoResponse {
 /// A stream of WebSocket messages.
 async fn handle_socket(mut socket: WebSocket) {
     // Returns `None` if the stream has closed.
+    println!("handle_socket: new connection");
     if let Some(msg) = socket.recv().await {
         if let Ok(msg) = msg {
+            // We only consider text messages. Ignore binary, ping, pong.
             if let Message::Text(utf8_bytes) = msg {
                 println!("Text received: {}", utf8_bytes);
-                let dec = deserialise_gamerequest(&utf8_bytes);
-                println!("Received: {:?}", dec);
-                let runtime_handle = tokio::runtime::Handle::current();
-                match dec {
-                    GameRequest::NewGame { name } => {
-                        game_handler(name, socket, runtime_handle).await;
+                if let Some(game_request) = safe_deserialise(&utf8_bytes) {
+                    println!("Received: {:?}", game_request);
+                    let runtime_handle = tokio::runtime::Handle::current();
+                    match game_request {
+                        GameRequest::NewGame { name } => {
+                            game_handler(name, socket, runtime_handle).await;
+                        }
+                        GameRequest::JoinGame { .. } => {}
                     }
-                    GameRequest::JoinGame { .. } => {}
                 }
-                // ignore binary, ping, pong
             }
         } else {
             let error = msg.err().unwrap();

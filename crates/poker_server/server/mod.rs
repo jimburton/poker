@@ -1,7 +1,5 @@
-use actor::PokerMessage;
-use axum::extract::ws::{CloseFrame, Message, Utf8Bytes, WebSocket};
-
-use crate::GameRequest;
+use axum::extract::ws::{CloseFrame, Message, WebSocket};
+use serde::Deserialize;
 
 pub mod actor;
 pub mod game;
@@ -16,14 +14,17 @@ pub async fn send_close_message(mut socket: WebSocket, code: u16, reason: &str) 
         .await;
 }
 
-/// Deserialise a GameRequest struct.
-pub fn deserialise_gamerequest(utf8_bytes: &Utf8Bytes) -> GameRequest {
-    let msg = str::from_utf8(utf8_bytes.as_bytes()).unwrap();
-    serde_json::from_str(msg).unwrap()
-}
-
-/// Deserialise a PokerMessage struct.
-pub fn deserialise_pokermessage(utf8_bytes: &Utf8Bytes) -> PokerMessage {
-    let msg = str::from_utf8(utf8_bytes.as_bytes()).unwrap();
-    serde_json::from_str(msg).unwrap()
+/// Safely attempts to deserialize a UTF-8 string slice into any type T
+/// that implements the Deserialize trait.
+pub fn safe_deserialise<'a, T>(bytes: &'a str) -> Option<T>
+where
+    T: Deserialize<'a>,
+{
+    match serde_json::from_str(bytes) {
+        Ok(data) => Some(data),
+        Err(e) => {
+            eprintln!("Deserialization error: {}", e);
+            None
+        }
+    }
 }

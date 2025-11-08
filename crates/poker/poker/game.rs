@@ -168,7 +168,18 @@ impl Game {
         }
     }
 
-    /// Announce the winner at the end of the game.
+    /// Announce the players at the beginning of a round.
+    fn announce_players(&self) {
+        let players_info = self
+            .players
+            .values()
+            .map(|player| (player.name.clone(), player.bank_roll))
+            .collect();
+        let msg = Msg::PlayersInfo(players_info);
+        self.update_players(&msg);
+    }
+
+    /// Announce the winner at the end of the round.
     fn announce_winner_round(&self) {
         let w = self.winner.as_ref().unwrap();
         let msg = Msg::Game(w.clone());
@@ -200,6 +211,7 @@ impl Game {
     fn play_round(&mut self) {
         self.order_players();
         self.ante_up();
+        self.announce_players();
         self.stage = Stage::Hole;
         self.deal_hole_cards();
         self.stage = Stage::PreFlop;
@@ -350,65 +362,71 @@ impl Game {
                 if p.name == target {
                     target_placed_bet = true;
                 }
-                cycle += 1;
-                let ccards = self.community_cards.clone();
-                let args = BetArgs {
-                    call,
-                    min,
-                    stage: self.stage,
-                    cycle,
-                    community_cards: ccards,
-                };
-                let bet_opt = p.place_bet(args);
+                if !p.all_in && !p.folded {
+                    let ccards = self.community_cards.clone();
+                    let args = BetArgs {
+                        call,
+                        min,
+                        stage: self.stage,
+                        cycle,
+                        community_cards: ccards,
+                    };
+                    let bet_opt = p.place_bet(args);
 
-                let bet = bet_opt.unwrap();
+                    let bet = bet_opt.unwrap();
 
-                match bet {
-                    Bet::Fold => {
-                        players.remove(current_index);
-                        continue; // continue without incrementing current
-                    }
-                    Bet::Check => {
-                        if call > 0 {
-                            panic!("Misbehaving client checked when there was an outstanding bet.");
+                    match bet {
+                        Bet::Fold => {
+                            players.remove(current_index);
+                            continue; // continue without incrementing current
+                        }
+                        Bet::Check => {
+                            if call > 0 {
+                                panic!(
+                                    "Misbehaving client checked when there was an outstanding bet."
+                                );
+                            }
+                        }
+                        Bet::Call => {
+                            self.pot += call;
+                        }
+                        Bet::Raise(raise) => {
+                            cycle += 1;
+                            if !self.side_pots.is_empty() {
+                                let side_pot = self.side_pots.get_mut(0).unwrap();
+                                side_pot.pot += raise;
+                            } else {
+                                self.pot += raise;
+                            }
+                            // raise is the new amount to match/beat
+                            call = raise;
+                            target = p.name.clone();
+                        }
+                        Bet::AllIn(bet) => {
+                            self.pot += bet;
+
+                            if let Some(index) =
+                                not_all_in.iter().position(|value| value == &p.name)
+                            {
+                                not_all_in.swap_remove(index);
+                            }
+
+                            let new_side_pot = SidePot {
+                                players: not_all_in.clone(),
+                                pot: 0,
+                            };
+                            self.side_pots.push(new_side_pot);
+                            // don't ask this player again in this round.
+                            players.remove(current_index);
+                            continue; // continue without incrementing current
                         }
                     }
-                    Bet::Call => {
-                        self.pot += call;
-                    }
-                    Bet::Raise(raise) => {
-                        if !self.side_pots.is_empty() {
-                            let side_pot = self.side_pots.get_mut(0).unwrap();
-                            side_pot.pot += raise;
-                        } else {
-                            self.pot += raise;
-                        }
-                        // raise is the new amount to match/beat
-                        call = raise;
-                        target = p.name.clone();
-                    }
-                    Bet::AllIn(bet) => {
-                        self.pot += bet;
-
-                        if let Some(index) = not_all_in.iter().position(|value| value == &p.name) {
-                            not_all_in.swap_remove(index);
-                        }
-
-                        let new_side_pot = SidePot {
-                            players: not_all_in.clone(),
-                            pot: 0,
-                        };
-                        self.side_pots.push(new_side_pot);
-                        // don't ask this player again in this round.
-                        players.remove(current_index);
-                        continue; // continue without incrementing current
-                    }
+                    let update = Msg::Bet {
+                        player: p.name.clone(),
+                        bet,
+                    };
+                    self.update_players(&update);
                 }
-                let update = Msg::Bet {
-                    player: p.name.clone(),
-                    bet,
-                };
-                self.update_players(&update);
                 current_index = (current_index + 1) % players.len();
             }
         }
@@ -870,6 +888,7 @@ impl Game {
             }
             self.players.remove(name);
         }
+        // Add players to bring up the numbers?
     }
 }
 
@@ -877,9 +896,9 @@ impl Game {
 mod tests {
     use super::*;
     use crate::poker::{
+        autoactor::AutoActor,
         betting_strategy::BetArgs,
         card::{Card, Hand, Rank, Suit},
-        player::AutoActor,
     };
 
     #[test]

@@ -1,4 +1,5 @@
-use player::{AutoActor, Player};
+use autoactor::AutoActor;
+use player::Player;
 
 pub mod autoactor;
 pub mod betting_strategy;

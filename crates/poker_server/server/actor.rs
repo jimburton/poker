@@ -1,4 +1,4 @@
-use crate::server::deserialise_pokermessage;
+use crate::server::safe_deserialise;
 use axum::extract::ws::{Message, Utf8Bytes, WebSocket};
 use poker::poker::{
     betting_strategy::BetArgs,
@@ -8,6 +8,7 @@ use poker::poker::{
     player::{Actor, Msg},
 };
 use serde::{Deserialize, Serialize};
+use std::sync::mpsc as std_mpsc;
 use tokio::{
     runtime::Handle,
     sync::{mpsc, oneshot},
@@ -16,8 +17,7 @@ use tokio::{
 // --- CONSTANTS ---
 // We use mpsc for Server Updates -> WebSocket
 const CHANNEL_CAPACITY: usize = 32;
-// --- TYPE ALIAS FOR BET REQUEST (NEW) ---
-// This bundles the synchronous input data with the asynchronous reply channel.
+// This type bundles the synchronous input data with the asynchronous reply channel.
 type BetRequest = (BetArgs, (Card, Card), usize, oneshot::Sender<Option<Bet>>);
 
 /// Enum for messages within a game.
@@ -58,6 +58,7 @@ async fn start_socket_loop(
     mut update_rx: mpsc::Receiver<PokerMessage>,
     mut bet_rx: mpsc::Receiver<BetRequest>,
 ) {
+    println!("socket_loop: placing bet");
     // Run the loop indefinitely until the socket closes or an error occurs
     loop {
         tokio::select! {
@@ -95,12 +96,10 @@ async fn start_socket_loop(
                 if let Some(msg) = socket.recv().await {
                     match msg {
                         Ok(Message::Text(utf8_bytes)) => {
-                            // In a real app, deserialise_pokermessage would parse this
-                            let bet = deserialise_pokermessage(&utf8_bytes);
-
+                let bet = safe_deserialise::<PokerMessage>(&utf8_bytes);
                             // Extract the bet action
                             let final_bet = match bet {
-                                PokerMessage::PlayerBet(b) => Some(b),
+                                Some(PokerMessage::PlayerBet(b)) => Some(b),
                                 _ => {
                                     eprintln!("Expected PlayerBet, got something else: {:?}", bet);
                                     None
@@ -137,9 +136,8 @@ async fn start_socket_loop(
             // 3. Handle messages spontaneously sent from the client (e.g., chat)
             Some(result) = socket.recv() => {
                 match result {
-                    Ok(Message::Text(utf8_bytes)) => {
-                        // Handle unsolicited messages here (e.g., chat or keep-alive)
-                        let _msg = deserialise_pokermessage(&utf8_bytes);
+                    Ok(Message::Text(_utf8_bytes)) => {
+                        // Handle unsolicited messages here (e.g., chat or keep-alive).
                         // Do nothing, since we only care about bet responses during place_bet
                     }
                     Ok(Message::Close(_)) => {
@@ -196,22 +194,50 @@ impl Actor for RemoteActor {
         hole_cards: (Card, Card),
         bank_roll: usize,
     ) -> Option<Bet> {
-        // 1. Create a oneshot channel to receive the result from the async loop
-        let (result_tx, result_rx) = oneshot::channel();
-        let request: BetRequest = (args, hole_cards, bank_roll, result_tx);
-        // 2. Send the receiver channel to the async loop
-        let send_result = self.handle.bet_tx.blocking_send(request);
+        println!("RemoteActor::place_bet");
+        // Create a standard library blocking MPSC channel for the final result.
+        // This is safe for blocking the calling thread, even if it's a Tokio worker.
+        let (sync_tx, sync_rx) = std_mpsc::channel();
 
-        if send_result.is_err() {
-            eprintln!("Failed to send bet request to socket loop.");
-            return None;
-        }
+        // Clone necessary parts to move into the blocking thread
+        let tx_clone = self.handle.bet_tx.clone();
+        let runtime_handle_clone = self.runtime_handle.clone();
 
-        // 3. Block on the result channel, waiting for the async loop to reply
-        match self.runtime_handle.block_on(result_rx) {
-            Ok(bet) => bet, // This is the Option<Bet> sent by the async loop
+        // Spawn the entire request/response sequence onto a dedicated blocking thread.
+        runtime_handle_clone.spawn_blocking(move || {
+            // This runs on a separate thread pool where blocking is allowed.
+
+            // Tokio oneshot channel for receiving from the socket loop
+            let (result_tx, result_rx) = oneshot::channel();
+            let request: BetRequest = (args, hole_cards, bank_roll, result_tx);
+
+            // Send the request to the async loop (blocking_send is safe here)
+            if tx_clone.blocking_send(request).is_err() {
+                eprintln!("Failed to send bet request to socket loop from blocking thread.");
+                let _ = sync_tx.send(None); // Send None back to the caller
+                return;
+            }
+
+            // Block the current dedicated thread until the async loop replies
+            let result = match result_rx.blocking_recv() {
+                Ok(bet) => bet,
+                Err(e) => {
+                    eprintln!("Oneshot receiver error on blocking thread: {}", e);
+                    None
+                }
+            };
+
+            // d. Send the final result back to the original calling thread via std::mpsc
+            let _ = sync_tx.send(result);
+        });
+
+        // The thread calling `place_bet` blocks on the standard library receiver.
+        // This is the clean, safe way to block on a Tokio worker thread.
+        match sync_rx.recv() {
+            Ok(bet) => bet, // The Option<Bet> result
             Err(e) => {
-                eprintln!("WebSocket loop failed to respond to bet request: {}", e);
+                // The standard MPSC channel failed (e.g., sender dropped unexpectedly)
+                eprintln!("Standard MPSC channel error waiting for result: {}", e);
                 None
             }
         }
@@ -221,133 +247,11 @@ impl Actor for RemoteActor {
     fn update(&self, msg: &Msg) {
         // Convert the synchronous Msg into the asynchronous PokerMessage
         let poker_msg = PokerMessage::General { msg: msg.clone() };
-
-        // Use blocking_send to avoid spawning another future just for the send.
-        // This is safe because mpsc::Sender::blocking_send is non-blocking
-        // until the channel capacity is reached (which is why we set capacity=32).
-        if let Err(e) = self.handle.update_tx.blocking_send(poker_msg) {
-            eprintln!("Failed to send update message: {}", e);
-        }
-    }
-}
-/*
-/// Using the Synchronous Facade pattern to hide the asynchronicity of remote
-/// actors, enabling them to implement the (synchronous) Actor Trait.
-/// The async part is behind a level of indirection in RemoteActorImpl.
-#[derive(Debug)]
-pub struct RemoteActorImpl {
-    // e.g., a connection to the client
-    socket: WebSocket,
-}
-/// Implementation for RemoteActorImpl
-impl RemoteActorImpl {
-    async fn remote_place_bet(
-        &mut self,
-        args: BetArgs,
-        hole_cards: (Card, Card),
-        bank_roll: usize,
-    ) -> Option<Bet> {
-        let mut cards = args.community_cards.clone();
-        let (h1, h2) = (hole_cards.0, hole_cards.1);
-        cards.push(h1);
-        cards.push(h2);
-        let bh = best_hand(&cards);
-
-        let msg = PokerMessage::PlaceBet {
-            args,
-            hole_cards,
-            bank_roll,
-            best_hand: bh,
-        };
-        let result = self
-            .socket
-            .send(Message::Text(Utf8Bytes::from(
-                serde_json::to_string(&msg).unwrap(),
-            )))
-            .await;
-        // then get the result
-        if let Some(msg) = self.socket.recv().await {
-            if let Ok(msg) = msg {
-                match msg {
-                    Message::Text(utf8_bytes) => {
-                        let bet = deserialise_pokermessage(&utf8_bytes);
-                        match bet {
-                            PokerMessage::PlayerBet(bet) => match bet {
-                                Bet::Fold => Some(Bet::Fold),
-                                Bet::Check => Some(Bet::Check),
-                                Bet::Call => Some(Bet::Call),
-                                Bet::Raise(n) => Some(Bet::Raise(n)),
-                                Bet::AllIn(n) => Some(Bet::AllIn(n)),
-                            },
-                            _ => {
-                                dbg!("Was expecting a bet but got {}",);
-                                None
-                            }
-                        }
-                    }
-                    _ => None,
-                }
-            } else {
-                None
-            }
-        } else if let Err(error) = result {
-            println!("Error sending: {}", error);
-            crate::server::send_close_message(
-                self.socket,
-                1011,
-                &format!("Error occured: {}", error),
-            )
-            .await;
-            None
-        }
-    }
-
-    async fn remote_update(&mut self, msg: &Msg) {
-        self.socket
-            .send(Message::Text(Utf8Bytes::from(
-                serde_json::to_string(msg).unwrap(),
-            )))
-            .await;
-    }
-
-    // async fn remote_update(&self, msg: Msg) { /* ... */ }
-}
-#[derive(Debug)]
-pub struct RemoteActor {
-    runtime_handle: Handle,
-    remote_impl: RemoteActorImpl,
-}
-
-impl RemoteActor {
-    pub fn build(socket: WebSocket, runtime_handle: Handle) -> RemoteActor {
-        RemoteActor {
-            runtime_handle,
-            remote_impl: RemoteActorImpl { socket },
-        }
-    }
-}
-
-impl Actor for RemoteActor {
-    /// Place a bet.
-    fn place_bet(
-        &mut self,
-        args: BetArgs,
-        hole_cards: (Card, Card),
-        bank_roll: usize,
-    ) -> Option<Bet> {
-        // Use the runtime handle to block on the async call
-        let future = self
-            .remote_impl
-            .remote_place_bet(args, hole_cards, bank_roll);
-        self.runtime_handle.block_on(future)
-    }
-
-    fn update(&self, msg: &Msg) {
-        let mut remote_impl = &self.remote_impl;
-        let msg = msg.clone();
+        let tx = self.handle.update_tx.clone();
         self.runtime_handle.spawn(async move {
-            remote_impl.remote_update(&msg).await;
+            if let Err(e) = tx.send(poker_msg).await {
+                eprintln!("Failed to send update message: {}", e);
+            }
         });
     }
 }
-*/

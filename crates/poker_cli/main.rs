@@ -2,10 +2,11 @@ mod cli;
 
 use cli::player::CLIPlayer;
 use poker::poker::{
+    autoactor::AutoActor,
     betting_strategy::{modest_betting_strategy, six_max},
     game::Game,
     new_game_with_players,
-    player::{AutoActor, Player},
+    player::Player,
 };
 
 fn main() {

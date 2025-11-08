@@ -1,6 +1,5 @@
 /// Datatypes and functions for players in the game.
-use crate::poker::betting_strategy;
-use crate::poker::betting_strategy::{BetArgs, BettingStrategy};
+use crate::poker::betting_strategy::BetArgs;
 use crate::poker::card::{Card, Hand};
 use crate::poker::game::{Bet, Stage};
 use serde::{Deserialize, Serialize};
@@ -16,6 +15,7 @@ pub struct PlayerHand {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Msg {
     Bet { player: String, bet: Bet },
+    PlayersInfo(Vec<(String, usize)>), // (name, bank roll)
     Misc(String),
     Game(Winner),
     Round(Stage),
@@ -25,6 +25,20 @@ impl Display for Msg {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Msg::Bet { player, bet } => write!(f, "{} made bet {}", player, bet),
+            Msg::PlayersInfo(players) => {
+                write!(
+                    f,
+                    "Playing with {}",
+                    players
+                        .into_iter()
+                        .map(|(player_name, bank_roll)| player_name.clone()
+                            + " ("
+                            + &bank_roll.to_string()
+                            + ")")
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                )
+            }
             Msg::Misc(msg) => write!(f, "{}", msg),
             Msg::Game(winner) => write!(f, "{}", winner),
             Msg::Round(stage) => write!(f, "{}", stage),
@@ -98,28 +112,33 @@ impl Player {
     }
     /// Place a bet by asking the actor to do it.
     pub fn place_bet(&mut self, args: BetArgs) -> Option<Bet> {
-        let bet = self
-            .actor
-            .place_bet(args.clone(), self.hole.unwrap(), self.bank_roll)
-            .unwrap();
-        match bet {
-            Bet::Fold => {
-                self.folded = true;
-                Some(Bet::Fold)
+        if !self.all_in && !self.folded {
+            let bet = self
+                .actor
+                .place_bet(args.clone(), self.hole.unwrap(), self.bank_roll)
+                .unwrap();
+            match bet {
+                Bet::Fold => {
+                    self.folded = true;
+                    Some(Bet::Fold)
+                }
+                Bet::Check => Some(Bet::Check),
+                Bet::Call => {
+                    self.bank_roll -= args.clone().call;
+                    Some(Bet::Call)
+                }
+                Bet::Raise(n) => {
+                    self.bank_roll -= n;
+                    Some(Bet::Raise(n))
+                }
+                Bet::AllIn(n) => {
+                    self.bank_roll = 0;
+                    self.all_in = true;
+                    Some(Bet::AllIn(n))
+                }
             }
-            Bet::Check => Some(Bet::Check),
-            Bet::Call => {
-                self.bank_roll -= args.clone().call;
-                Some(Bet::Call)
-            }
-            Bet::Raise(n) => {
-                self.bank_roll -= n;
-                Some(Bet::Raise(n))
-            }
-            Bet::AllIn(n) => {
-                self.bank_roll = 0;
-                Some(Bet::AllIn(n))
-            }
+        } else {
+            None
         }
     }
 
@@ -143,52 +162,6 @@ impl Player {
             None
         }
     }
-}
-
-/// The actor for a computer player.
-#[derive(Debug, Clone)]
-pub struct AutoActor {
-    pub betting_strategy: BettingStrategy,
-}
-
-/// Implementation for AutoActor.
-impl AutoActor {
-    /// Construct a new Player instance.
-    pub fn new() -> Self {
-        AutoActor {
-            betting_strategy: betting_strategy::default_betting_strategy,
-        }
-    }
-    /// Construct a new Player instance with the supplied strategy.
-    pub fn build(betting_strategy: BettingStrategy) -> Self {
-        AutoActor { betting_strategy }
-    }
-}
-/// Implementation of Default trait for AutoActor.
-impl Default for AutoActor {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-/// Implementation of the Actor trait for AutoActor.
-impl Actor for AutoActor {
-    /// Place a bet using the betting strategy.
-    fn place_bet(
-        &mut self,
-        args: BetArgs,
-        hole_cards: (Card, Card),
-        bank_roll: usize,
-    ) -> Option<Bet> {
-        //let mut cards = args.community_cards.clone();
-        //let (h1, h2) = hole_cards;
-        //cards.push(h1);
-        //cards.push(h2);
-        let strategy = self.betting_strategy;
-        Some(strategy(args, hole_cards, bank_roll))
-    }
-
-    /// Accept a message and do nothing with it.
-    fn update(&self, _msg: &Msg) {}
 }
 
 #[cfg(test)]

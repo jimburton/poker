@@ -89,5 +89,8 @@ standard in various ways.
   
 # TODO
 
-+ Refactor API to be more functional.
-+ Add interactive players.
++ Add a new kind of game that runs for a fixed number of rounds and
+  bumps up the blind periodically. The winner is the player with the
+  highest bank roll. E.g. a game that runs for 50 rounds, with the
+  blind doubling every 5 rounds. New auto players are added after each
+  round as necessary to keep the numbers up.

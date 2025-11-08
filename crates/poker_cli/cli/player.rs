@@ -59,6 +59,19 @@ impl Actor for CLIPlayer {
             Msg::Bet { player, bet } => {
                 println!("Player {} made bet: {}", player, bet);
             }
+            Msg::PlayersInfo(players) => {
+                println!(
+                    "Playing this round with: {}",
+                    players
+                        .iter()
+                        .map(|(player_name, bank_roll)| player_name.clone()
+                            + " ("
+                            + &bank_roll.to_string()
+                            + ")")
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                );
+            }
             Msg::Misc(contents) => {
                 println!("Update: {}", contents,);
             }

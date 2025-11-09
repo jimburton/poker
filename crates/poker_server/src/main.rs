@@ -2,17 +2,21 @@ mod server;
 use crate::server::game::game_handler;
 use axum::{
     Router,
-    extract::ws::{Message, WebSocket, WebSocketUpgrade},
+    extract::{
+        ConnectInfo,
+        ws::{Message, WebSocket, WebSocketUpgrade},
+    },
     response::IntoResponse,
     routing::get,
 };
+use log::error;
 use log::info;
 use serde::{Deserialize, Serialize};
 use server::{
     config::Settings,
     {safe_deserialise, send_close_message},
 };
-use std::env;
+use std::{env, net::SocketAddr};
 
 /// Enum for join game messages only.
 #[derive(Debug, Serialize, Deserialize)]
@@ -22,14 +26,15 @@ pub enum GameRequest {
 }
 
 /// Extractor for establishing WebSocket connections.
-async fn websocket_handler(ws: WebSocketUpgrade) -> impl IntoResponse {
-    // Finalize upgrading the connection and call the provided callback with the stream.
-    ws.on_failed_upgrade(|error| println!("Error upgrading websocket: {}", error))
-        .on_upgrade(handle_socket)
+async fn websocket_handler(
+    ws: WebSocketUpgrade,
+    ConnectInfo(remote_addr): ConnectInfo<SocketAddr>,
+) -> impl IntoResponse {
+    ws.on_upgrade(move |socket| handle_socket(socket, remote_addr))
 }
 
 /// A stream of WebSocket messages.
-async fn handle_socket(mut socket: WebSocket) {
+async fn handle_socket(mut socket: WebSocket, remote_addr: SocketAddr) {
     // Returns `None` if the stream has closed.
     if let Some(msg) = socket.recv().await {
         if let Ok(msg) = msg {
@@ -37,7 +42,7 @@ async fn handle_socket(mut socket: WebSocket) {
             if let Message::Text(utf8_bytes) = msg
                 && let Some(game_request) = safe_deserialise(&utf8_bytes)
             {
-                println!("Received: {:?}", game_request);
+                info!("Game request from {}", remote_addr);
                 let runtime_handle = tokio::runtime::Handle::current();
                 match game_request {
                     GameRequest::NewGame { name } => {
@@ -48,7 +53,7 @@ async fn handle_socket(mut socket: WebSocket) {
             }
         } else {
             let error = msg.err().unwrap();
-            println!("Error receiving message: {:?}", error);
+            error!("Error receiving message: {:?}", error);
             send_close_message(socket, 1011, &format!("Error occured: {}", error)).await;
         }
     }
@@ -65,12 +70,17 @@ async fn main() -> anyhow::Result<()> {
             info!("Starting server at address: {}", address);
             let listener = tokio::net::TcpListener::bind(address).await.unwrap();
 
-            axum::serve(listener, app).await.unwrap();
+            axum::serve(
+                listener,
+                app.into_make_service_with_connect_info::<SocketAddr>(),
+            )
+            .await
+            .unwrap();
 
             anyhow::Result::Ok(())
         }
         Err(e) => {
-            eprintln!("Error loading config: {}", e);
+            error!("Error loading config: {}", e);
             anyhow::Result::Err(e)
         }
     }?)

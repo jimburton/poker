@@ -1,9 +1,11 @@
 use config::{Config, ConfigError, Environment, File};
 use getopts::{Matches, Options};
-use log::info;
+use log::{info, warn};
 use log4rs;
 use serde::Deserialize;
-use std::ffi::OsString;
+use std::{ffi::OsString, fs};
+
+use crate::server::log_setup;
 
 /// Struct for the config.
 #[allow(unused)]
@@ -57,7 +59,7 @@ impl Settings {
         // get settings from config file.
         let mut settings: Settings = Config::builder()
             .set_default("debug_mode", false)?
-            .set_default("log_config_path", "logging_config.yaml")?
+            .set_default("log_config_path", log_path)?
             .set_default("server.port", 3000)?
             .set_default("server.host", "127.0.0.1")?
             .add_source(File::with_name(&config_path).required(false))
@@ -70,7 +72,7 @@ impl Settings {
             .try_deserialize()
             .unwrap();
         if matches.opt_present("l") {
-            settings.log_config_path = matches.opt_str("l;").unwrap();
+            settings.log_config_path = matches.opt_str("l").unwrap();
         }
         if matches.opt_present("n") {
             settings.server.host = matches.opt_str("n").unwrap();
@@ -78,9 +80,17 @@ impl Settings {
         if matches.opt_present("p") {
             settings.server.port = matches.opt_str("p").unwrap().parse().unwrap();
         }
-        log4rs::init_file(settings.log_config_path.clone(), Default::default()).unwrap();
+        let log_path_clone = settings.log_config_path.clone();
+        let log_path_clone2 = settings.log_config_path.clone();
+        let log_path_clone3 = settings.log_config_path.clone();
+        if let Ok(metadata) = fs::metadata(log_path_clone) {
+            log4rs::init_file(log_path_clone2, Default::default()).unwrap();
+        } else {
+            log_setup::build();
+            warn!("Can't find log config file {}", log_path_clone2);
+        }
         info!("Config path: {}", config_path);
-        info!("Log path: {}", log_path);
+        info!("Log path: {}", log_path_clone3);
         Ok(settings)
     }
 }

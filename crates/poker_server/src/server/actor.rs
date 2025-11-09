@@ -1,5 +1,6 @@
 use crate::server::safe_deserialise;
 use axum::extract::ws::{Message, Utf8Bytes, WebSocket};
+use log::error;
 use poker::poker::{
     betting_strategy::BetArgs,
     card::{Card, Hand},
@@ -96,7 +97,7 @@ async fn start_socket_loop(
                             let final_bet = match bet {
                                 Some(PokerMessage::PlayerBet(b)) => Some(b),
                                 _ => {
-                                    eprintln!("Expected PlayerBet, got something else: {:?}", bet);
+                                    error!("Expected PlayerBet, got something else: {:?}", bet);
                                     None
                                 }
                             };
@@ -136,11 +137,11 @@ async fn start_socket_loop(
                         // Do nothing, since we only care about bet responses during place_bet
                     }
                     Ok(Message::Close(_)) => {
-                        println!("WebSocket closed by client.");
+                        error!("WebSocket closed by client.");
                         return;
                     }
                     Err(e) => {
-                        eprintln!("WebSocket error: {}", e);
+                        error!("WebSocket error: {}", e);
                         return;
                     }
                     _ => {} // Ignore Binary, Ping, Pong, etc.
@@ -206,7 +207,7 @@ impl Actor for RemoteActor {
 
             // Send the request to the async loop (blocking_send is safe here)
             if tx_clone.blocking_send(request).is_err() {
-                eprintln!("Failed to send bet request to socket loop from blocking thread.");
+                error!("Failed to send bet request to socket loop from blocking thread.");
                 let _ = sync_tx.send(None); // Send None back to the caller
                 return;
             }
@@ -215,7 +216,7 @@ impl Actor for RemoteActor {
             let result = match result_rx.blocking_recv() {
                 Ok(bet) => bet,
                 Err(e) => {
-                    eprintln!("Oneshot receiver error on blocking thread: {}", e);
+                    error!("Oneshot receiver error on blocking thread: {}", e);
                     None
                 }
             };
@@ -230,7 +231,7 @@ impl Actor for RemoteActor {
             Ok(bet) => bet, // The Option<Bet> result
             Err(e) => {
                 // The standard MPSC channel failed (e.g., sender dropped unexpectedly)
-                eprintln!("Standard MPSC channel error waiting for result: {}", e);
+                error!("Standard MPSC channel error waiting for result: {}", e);
                 None
             }
         }
@@ -243,7 +244,7 @@ impl Actor for RemoteActor {
         let tx = self.handle.update_tx.clone();
         self.runtime_handle.spawn(async move {
             if let Err(e) = tx.send(poker_msg).await {
-                eprintln!("Failed to send update message: {}", e);
+                error!("Failed to send update message: {}", e);
             }
         });
     }

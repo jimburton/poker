@@ -1,9 +1,11 @@
 use axum::extract::ws::{CloseFrame, Message, WebSocket};
+use log::error;
 use serde::Deserialize;
 
 pub mod actor;
 pub mod config;
 pub mod game;
+mod log_setup;
 
 /// Graceful closing protocol.
 pub async fn send_close_message(mut socket: WebSocket, code: u16, reason: &str) {
@@ -24,7 +26,7 @@ where
     match serde_json::from_str(bytes) {
         Ok(data) => Some(data),
         Err(e) => {
-            eprintln!("Deserialization error: {}", e);
+            error!("Deserialization error: {}", e);
             None
         }
     }

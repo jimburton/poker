@@ -78,6 +78,9 @@ impl Actor for CLIPlayer {
             Msg::Game(w) => {
                 println!("##############\n## {}.\n##############", w,);
             }
+            Msg::RoundWinner(w) => {
+                println!("##############\n## {}.\n##############", w,);
+            }
             Msg::Round(stage) => {
                 println!(
                     "##############\n## The {} stage is beginning.\n##############",

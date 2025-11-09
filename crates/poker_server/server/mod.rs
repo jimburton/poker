@@ -2,6 +2,7 @@ use axum::extract::ws::{CloseFrame, Message, WebSocket};
 use serde::Deserialize;
 
 pub mod actor;
+pub mod config;
 pub mod game;
 
 /// Graceful closing protocol.

@@ -12,7 +12,7 @@ use std::{
     collections::HashMap,
     fmt::{self, Display},
 };
-use uuid::{Uuid, uuid};
+use uuid::Uuid;
 
 use super::betting_strategy::BetArgs;
 
@@ -72,6 +72,7 @@ struct SidePot {
 }
 
 /// Struct for the game.
+#[allow(unused)]
 #[derive(Debug)]
 pub struct Game {
     players: HashMap<String, Box<Player>>,

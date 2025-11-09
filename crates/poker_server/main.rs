@@ -6,8 +6,13 @@ use axum::{
     response::IntoResponse,
     routing::get,
 };
+use log::info;
 use serde::{Deserialize, Serialize};
-use server::{safe_deserialise, send_close_message};
+use server::{
+    config::Settings,
+    {safe_deserialise, send_close_message},
+};
+use std::env;
 
 /// Enum for join game messages only.
 #[derive(Debug, Serialize, Deserialize)]
@@ -29,16 +34,16 @@ async fn handle_socket(mut socket: WebSocket) {
     if let Some(msg) = socket.recv().await {
         if let Ok(msg) = msg {
             // We only consider text messages. Ignore binary, ping, pong.
-            if let Message::Text(utf8_bytes) = msg {
-                if let Some(game_request) = safe_deserialise(&utf8_bytes) {
-                    println!("Received: {:?}", game_request);
-                    let runtime_handle = tokio::runtime::Handle::current();
-                    match game_request {
-                        GameRequest::NewGame { name } => {
-                            game_handler(name, socket, runtime_handle).await;
-                        }
-                        GameRequest::JoinGame { .. } => {}
+            if let Message::Text(utf8_bytes) = msg
+                && let Some(game_request) = safe_deserialise(&utf8_bytes)
+            {
+                println!("Received: {:?}", game_request);
+                let runtime_handle = tokio::runtime::Handle::current();
+                match game_request {
+                    GameRequest::NewGame { name } => {
+                        game_handler(name, socket, runtime_handle).await;
                     }
+                    GameRequest::JoinGame { .. } => {}
                 }
             }
         } else {
@@ -51,11 +56,22 @@ async fn handle_socket(mut socket: WebSocket) {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let app = Router::new().route("/", get(websocket_handler));
+    let args: Vec<String> = env::args().collect();
+    // Load config.
+    Ok(match Settings::load(args) {
+        Ok(settings) => {
+            let app = Router::new().route("/", get(websocket_handler));
+            let address = settings.server.host + ":" + &settings.server.port.to_string();
+            info!("Starting server at address: {}", address);
+            let listener = tokio::net::TcpListener::bind(address).await.unwrap();
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await?;
+            axum::serve(listener, app).await.unwrap();
 
-    axum::serve(listener, app).await?;
-
-    Ok(())
+            anyhow::Result::Ok(())
+        }
+        Err(e) => {
+            eprintln!("Error loading config: {}", e);
+            anyhow::Result::Err(e)
+        }
+    }?)
 }

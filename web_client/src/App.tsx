@@ -53,40 +53,51 @@ Message: {"msg":{"PlayersInfo":[[<string>,<amount>] ..]}} // PlayersInfo is a li
 	 | {"msg":{"Game":{"Winner":{"name":<string>,"hand":<Hand>,"cards":[<Card> .. seven]}}}} // notification that a player won the game.	
 */
 import { FormEvent, useEffect, useState } from "react";
+import { match } from "ts-pattern";
+
+type ItemTuple = [string, number];
+
+type Shape = Circle | Rectangle | Triangle;
 
 function App() {
-  const [messages, setMessages] = useState<string[]>([]);
+  
+  const [players, setPlayers] = useState<ItemTuple[]>([]);
+  const [stage, setStage] = useState<string>("");
+  const [playerName, setPlayerName] = useState<string>("");
+  const [bankRoll, setBankRoll] = useState<number>(0);
   const [socket, setSocket] = useState<WebSocket | undefined>(undefined);
 
   useEffect(() => {
-    const socket = new WebSocket("ws://localhost:3000/");
+    const socket = new WebSocket("ws://127.0.0.1:3000/");
     socket.onmessage = (e: MessageEvent<string>) =>
-      setMessages((prev) => [...prev, e.data]);
+      handleMessage(e.data);
     setSocket(socket);
-    return () => socket.close();
   }, []);
+
+  const handleMessage = (msg: object) => {
+    let o = JSON.parse(msg);
+    console.log(o);
+  }
 
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!socket) return;
     const form = e.target as typeof e.target & {
-      input: { value: string };
+      name: { value: string };
     };
-    socket.send(form.input.value);
-    form.input.value = "";
+    let join_msg = { NewGame : { name : form.name.value } };
+    socket.send(JSON.stringify(join_msg));
+    setPlayerName(e.data);
+    form.name.value = "";
   };
 
   return (
     <>
-      <h1>WebSocket Chat App</h1>
-      <ul>
-        {messages.map((body, index) => (
-          <li key={index}>{body}</li>
-        ))}
-      </ul>
+      <h1>Start a game</h1>
       <form onSubmit={submit}>
-        <input type="text" name="input" />
-        <button type="submit">Send</button>
+        <label htmlFor="name">Name</label>
+	<input type="text" name="name" id="name" />
+        <button type="submit">Start game</button>
       </form>
     </>
   );

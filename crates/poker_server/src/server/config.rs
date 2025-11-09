@@ -44,6 +44,7 @@ impl Settings {
         let matches = match opts.parse(&args[1..]) {
             Ok(m) => m,
             Err(f) => {
+                print_usage(&program, opts);
                 panic!("{}", f.to_string())
             }
         };

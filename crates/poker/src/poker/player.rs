@@ -115,29 +115,32 @@ impl Player {
     /// Place a bet by asking the actor to do it.
     pub fn place_bet(&mut self, args: BetArgs) -> Option<Bet> {
         if !self.all_in && !self.folded {
-            let bet = self
+            let bet_opt = self
                 .actor
-                .place_bet(args.clone(), self.hole.unwrap(), self.bank_roll)
-                .unwrap();
-            match bet {
-                Bet::Fold => {
-                    self.folded = true;
-                    Some(Bet::Fold)
+                .place_bet(args.clone(), self.hole.unwrap(), self.bank_roll);
+            if let Some(bet) = bet_opt {
+                match bet {
+                    Bet::Fold => {
+                        self.folded = true;
+                        Some(Bet::Fold)
+                    }
+                    Bet::Check => Some(Bet::Check),
+                    Bet::Call => {
+                        self.bank_roll -= args.clone().call;
+                        Some(Bet::Call)
+                    }
+                    Bet::Raise(n) => {
+                        self.bank_roll -= n;
+                        Some(Bet::Raise(n))
+                    }
+                    Bet::AllIn(n) => {
+                        self.bank_roll = 0;
+                        self.all_in = true;
+                        Some(Bet::AllIn(n))
+                    }
                 }
-                Bet::Check => Some(Bet::Check),
-                Bet::Call => {
-                    self.bank_roll -= args.clone().call;
-                    Some(Bet::Call)
-                }
-                Bet::Raise(n) => {
-                    self.bank_roll -= n;
-                    Some(Bet::Raise(n))
-                }
-                Bet::AllIn(n) => {
-                    self.bank_roll = 0;
-                    self.all_in = true;
-                    Some(Bet::AllIn(n))
-                }
+            } else {
+                panic!("No bet received from player.");
             }
         } else {
             None

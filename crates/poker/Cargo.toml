@@ -5,7 +5,7 @@ edition = "2024"
 
 [lib]
 name = "poker"
-path = "lib.rs"
+path = "src/lib.rs"
 
 [dependencies]
 num-derive = "0.4.2"

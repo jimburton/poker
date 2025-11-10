@@ -130,12 +130,13 @@ impl Game {
     }
 
     /// Allows a player to join the game. The player's bank roll is set to the buy in amount.
+    /// TODO uniquify name.
     pub fn join(&mut self, mut player: Player) -> Result<(), &'static str> {
         if self.full() {
             return Err("Cannot add more players.");
         }
         let name = player.name.clone();
-        player.bank_roll = self.buy_in;
+        player.set_name_and_bank_roll(&name, self.buy_in);
         self.players.insert(name.clone(), Box::new(player));
         self.players_order.push(name);
         Ok(())
@@ -281,7 +282,7 @@ impl Game {
         self.players.iter_mut().for_each(|(_, p)| {
             let c1 = deck.pop().unwrap();
             let c2 = deck.pop().unwrap();
-            p.hole = Some((c1, c2));
+            p.hole_cards((c1, c2));
         });
         self.deck = deck;
     }
@@ -345,7 +346,7 @@ impl Game {
             return;
         }
 
-        let update = Msg::StageDeclare(self.stage);
+        let update = Msg::StageDeclare(self.stage, self.community_cards.clone());
         self.update_players(&update);
 
         let mut current_index: usize = 0;

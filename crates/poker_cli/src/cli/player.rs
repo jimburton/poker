@@ -11,6 +11,12 @@ use poker::poker::{
 pub struct CLIPlayer {}
 
 impl Actor for CLIPlayer {
+    /// Stub to accept the name and bank roll.
+    fn set_name_and_bank_roll(&self, _name: &String, _bank_roll: usize) {}
+
+    /// Accept the hole cards.
+    fn hole_cards(&self, _hole_cards: (Card, Card)) {}
+
     /// Place a bet.
     fn place_bet(
         &mut self,
@@ -56,32 +62,38 @@ impl Actor for CLIPlayer {
 
     fn update(&self, msg: &Msg) {
         match msg {
+            Msg::Player { name, bank_roll } => {
+                println!("Playing as {} ({})", name, bank_roll);
+            }
+            Msg::HoleCards { cards } => {
+                println!("Received hole cards: {}, {}", cards.0, cards.1);
+            }
             Msg::Bet { player, bet } => {
                 println!("Player {} made bet: {}", player, bet);
             }
-            Msg::PlayersInfo(players) => {
+            Msg::PlayersInfo { players, dealer } => {
                 println!(
                     "Playing this round with: {}",
                     players
                         .iter()
-                        .map(|(player_name, bank_roll)| player_name.clone()
-                            + " ("
-                            + &bank_roll.to_string()
-                            + ")")
+                        .map(|(player_name, bank_roll)| {
+                            let mut name = player_name.clone();
+                            if name == *dealer {
+                                name += " [Dealer]";
+                            }
+                            name + " (" + &bank_roll.to_string() + ")"
+                        })
                         .collect::<Vec<String>>()
                         .join(", "),
                 );
             }
-            Msg::Misc(contents) => {
-                println!("Update: {}", contents,);
-            }
-            Msg::Game(w) => {
+            Msg::GameWinner(w) => {
                 println!("##############\n## {}.\n##############", w,);
             }
             Msg::RoundWinner(w) => {
                 println!("##############\n## {}.\n##############", w,);
             }
-            Msg::Round(stage) => {
+            Msg::StageDeclare(stage, _community_cards) => {
                 println!(
                     "##############\n## The {} stage is beginning.\n##############",
                     stage,

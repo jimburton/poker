@@ -1,0 +1,67 @@
+/* Ensures the HTML and body take up the full viewport height */
+html, body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    font-family: system-ui, -apple-system, sans-serif;
+    color: white; /* Default text color */
+}
+
+#root {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+}
+
+/* --- Row Height Definitions (10% | 80% | 10% of Viewport Height) --- */
+#row1, #row3 {
+    height: 10vh; /* 10% of Viewport Height */
+}
+
+#row3 {
+    height: 30vh; /* 10% of Viewport Height */
+}
+
+#row2 {
+    height: 60vh; /* 80% of Viewport Height */
+}
+
+/* Ensure all inner rows take up 100% of their parent container's height */
+.row {
+    height: 100%;
+}
+
+/* --- Column Width Definitions (10% | 80% | 10% of Viewport Width) --- */
+.custom-col-width {
+    width: 10%; /* 10% Column Width */
+    padding: 0;
+}
+        
+.custom-col-width-center {
+    width: 80%; /* 80% Column Width */
+    padding: 0;
+}
+
+/* Custom styling for visibility */
+.grid-cell {
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    font-weight: bold;
+    text-align: center;
+}
+
+/* Apply background colors for visual separation */
+#row1 .grid-cell { background-color: rgba(0, 123, 255, 0.5); } /* Blue */
+#row2 .grid-cell { background-color: rgba(40, 167, 69, 0.5); } /* Green */
+#row3 .grid-cell { background-color: rgba(255, 193, 7, 0.5); } /* Yellow */
+
+/* Override Bootstrap's column padding (gutter) to make the custom width calculation simple */
+.row.g-0 > div {
+    padding-right: 0;
+    padding-left: 0;
+}
+
+img.holeCard {
+   width:100px;
+   height: auto;
+   margin-right: 30px;
+}

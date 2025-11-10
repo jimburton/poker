@@ -1,10 +1,10 @@
 // Types for the webapp.
 export type ItemTuple = [string, number];
 
-export type Rank = 'Rank2' | 'Rank3' | 'Rank4' | 'Rank5' | 'Rank6' | 'Rank7' | 'Rank8'
-                 | 'Rank9' | 'Rank10' | 'Jack' | 'Queen' | 'King' | 'Ace';
+export type Rank = Rank2 | Rank3 | Rank4 | Rank5 | Rank6 | Rank7 | Rank8
+                 | Rank9 | Rank10 | Jack | Queen | King | Ace;
 
-export type Suit = 'Clubs' | 'Spades' | 'Hearts' | 'Diamonds';
+export type Suit = Clubs | Spades | Hearts | Diamonds;
 
 export type Card = { rank: Rank; suit: Suit };
 
@@ -92,6 +92,7 @@ interface PlayersInfoMessage {
 interface StageDeclMessage {
   type: 'StageDecl';
   stage: string;
+  community_cards: Card[];
 }
 
 interface PlayerHand {
@@ -140,7 +141,14 @@ interface PlaceBetMessage {
     best_hand: Hand;
 }
 
+// Player message.
+interface Player {
+   type: 'Player';
+   name: string;
+   bank_roll: number;
+}
+
 // Union Type for incoming messages.
-export type IncomingPokerMessage = PlaceBetMessage | BetPlacedMessage | PlayersInfoMessage
-                                 | StageDeclMessage | RoundWinnerMessage
+export type IncomingPokerMessage = Player | PlaceBetMessage | BetPlacedMessage
+                                 | PlayersInfoMessage | StageDeclMessage | RoundWinnerMessage
 				 | GameWinnerMessage |  ErrorMessage;

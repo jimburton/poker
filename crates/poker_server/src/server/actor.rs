@@ -28,6 +28,13 @@ pub enum PokerMessage {
     PlayerBet(Bet),
 
     // Server -> Client messages
+    Player {
+        name: String,
+        bank_roll: usize,
+    },
+    HoleCards {
+        cards: (Card, Card),
+    },
     BetPlaced {
         player: String,
         bet: Bet,
@@ -44,6 +51,7 @@ pub enum PokerMessage {
     },
     StageDecl {
         stage: Stage,
+        community_cards: Vec<Card>,
     },
     PlaceBet {
         args: BetArgs,
@@ -79,10 +87,10 @@ async fn start_socket_loop(
 
                 // Construct the bet request message
                 let mut cards = args.community_cards.clone();
-        let (h1, h2) = (hole_cards.0, hole_cards.1);
-        cards.push(h1);
-        cards.push(h2);
-        let bh = best_hand(&cards);
+                let (h1, h2) = (hole_cards.0, hole_cards.1);
+                cards.push(h1);
+                cards.push(h2);
+                let bh = best_hand(&cards);
                 let bet_msg = PokerMessage::PlaceBet {
                     args,
                     hole_cards,
@@ -196,6 +204,20 @@ impl RemoteActor {
 // NOTE: The Actor trait methods must be defined here, NOT in the provided code snippet
 // I have created a simplified, conceptual impl for demonstration purposes.
 impl Actor for RemoteActor {
+    /// Accept the name and bank roll at the beginning of the game.
+    fn set_name_and_bank_roll(&self, name: &String, bank_roll: usize) {
+        let msg = Msg::Player {
+            name: name.clone(),
+            bank_roll,
+        };
+        self.update(&msg);
+    }
+
+    /// Accept the hole cards.
+    fn hole_cards(&self, hole_cards: (Card, Card)) {
+        let hole_card_msg = Msg::HoleCards { cards: hole_cards };
+        self.update(&hole_card_msg);
+    }
     /// Place a bet (Synchronous, Blocking).
     fn place_bet(
         &mut self, // Changed to &self as state is shared via channels
@@ -256,6 +278,11 @@ impl Actor for RemoteActor {
         println!("Sending {}", msg);
         // Convert the synchronous Msg into the asynchronous PokerMessage
         let poker_msg = match msg {
+            Msg::Player { name, bank_roll } => PokerMessage::Player {
+                name: name.clone(),
+                bank_roll: *bank_roll,
+            },
+            Msg::HoleCards { cards } => PokerMessage::HoleCards { cards: *cards },
             Msg::Bet { player, bet } => PokerMessage::BetPlaced {
                 player: player.clone(),
                 bet: *bet,
@@ -270,7 +297,10 @@ impl Actor for RemoteActor {
             Msg::RoundWinner(winner) => PokerMessage::RoundWinner {
                 winner: winner.clone(),
             },
-            Msg::StageDeclare(stage) => PokerMessage::StageDecl { stage: *stage },
+            Msg::StageDeclare(stage, community_cards) => PokerMessage::StageDecl {
+                stage: *stage,
+                community_cards: community_cards.clone(),
+            },
         };
         let tx = self.handle.update_tx.clone();
         self.runtime_handle.spawn(async move {

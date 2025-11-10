@@ -32,6 +32,12 @@ impl Default for AutoActor {
 }
 /// Implementation of the Actor trait for AutoActor.
 impl Actor for AutoActor {
+    /// Stub to accept the name and bank roll at the beginning of the game.
+    fn set_name_and_bank_roll(&self, _name: &String, _bank_roll: usize) {}
+
+    /// Stun to accept the hole cards.
+    fn hole_cards(&self, _hole_cards: (Card, Card)) {}
+
     /// Place a bet using the betting strategy.
     fn place_bet(
         &mut self,

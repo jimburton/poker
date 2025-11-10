@@ -3,17 +3,38 @@ Poker web app.
 **/
 import { FormEvent, useEffect, useState, useCallback } from "react";
 import type { ItemTuple, Card, IncomingPokerMessage } from './poker_messages';
+import Game from './Game';
+import StartGame from './StartGame';
 
 function App() {
   
   const [players, setPlayers] = useState<ItemTuple[]>([]);
   const [stage, setStage] = useState<string>("");
-  const [playerName, setPlayerName] = useState<string>("");
+  const [player, setPlayer] = useState<Player | null>(null);
   const [bankRoll, setBankRoll] = useState<number>(0);
   const [socket, setSocket] = useState<WebSocket | undefined>(undefined);
+  const [currentView, setCurrentView] = useState<string>('default');
+  const [dealer, setDealer] = useState<string>('');
+  const [holeCards, setHoleCards] = useState<string[]>([]);
+  const [communityCards, setCommunityCards] = useState<string[]>([]);
 
   // State to track the connection status (Not connected, Connecting, Connected)
   const [connectionStatus, setConnectionStatus] = useState<'Disconnected' | 'Connecting' | 'Connected'>('Disconnected');
+
+  const parseHoleCards = (cards: Card[]) => {
+    const names = cards.map((c) => parseCard(c)); 
+    setHoleCards(names);
+  };
+
+  const parseCommunityCards = (cards: Card[]) => {
+    const names = cards.map((c) => parseCard(c)); 
+    setCommunityCards(names);
+  };
+
+  const parseCard = (card: Card) => {
+    const rank = card.rank.toLowerCase().replace('rank', '');
+    return rank + '_of_' + card.suit.toLowerCase();
+  };
 
   const handleMessage = useCallback((data: string) => {
     if (connectionStatus !== 'Connected') {
@@ -33,32 +54,28 @@ function App() {
 	  ...(payload as object) // spread the inner payload
         } as IncomingPokerMessage;
 	
-      /*let message: IncomingPokerMessage;
-
-      if (typeKey === 'PlayersInfo' && Array.isArray(payload)) {
-        message = {
-          type: 'PlayersInfo',
-	  players: payload as ItemTuple[]
-        } as IncomingPokerMessage;
-      } else if (typeKey === 'StageDecl') {
-        message = {
-          type: 'StageDecl',
-	  stage: payload as string
-        } as IncomingPokerMessage;
-      } else {
-        message = {
-          type: typeKey as IncomingPokerMessage['type'],
-	  ...(payload as object) // spread the inner payload
-        } as IncomingPokerMessage;
-      }*/
-
       console.log('Message parsed as:');
       console.log(message);
 
       // Type narrowing using the discriminator.
       switch (message.type) {
+
+        case 'Player':
+	  const player = {
+	    name: message.name,
+	    bank_roll: message.bank_roll
+          } as Player;
+	  setPlayer(player);
+	  break
+	  
+        case 'HoleCards':
+	  parseHoleCards(message.cards);
+	  break;
+	  
         case 'PlaceBet':
 	  console.log(`Bet request. Stage: ${message.args.stage}`);
+	  parseHoleCards(message.hole_cards);
+	  parseCommunityCards(message.args.community_cards);
 	  // player needs to send bet back to the server
 	  break;
 
@@ -71,10 +88,13 @@ function App() {
 	  let playersStr = message.players.map((p) => p[0] + ' (' + p[1] + ')').join(", ");
 	  console.log(`Players: ${playersStr}`);
 	  // set up the UI.
+	  setDealer(message.dealer);
+	  setCurrentView('game');
 	  break;
 
         case 'StageDecl':
 	  console.log(`Stage: ${message.stage}`);
+	  parseCommunityCards(message.community_cards);
 	  break;
 
         case 'RoundWinner':
@@ -137,7 +157,7 @@ function App() {
       console.error("WebSocket Error:", error);
     };
   }, [handleMessage, setSocket, setConnectionStatus]);
-
+  
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!socket) return;
@@ -147,18 +167,29 @@ function App() {
     };
     let join_msg = { NewGame : { name : form.name.value } };
     socket.send(JSON.stringify(join_msg));
-    setPlayerName(e.data);
     form.name.value = "";
+    let request_players_msg = { RequestPlayers : true };
+    socket.send(JSON.stringify(join_msg));
+  };
+
+  // The logic for conditional rendering
+  const renderContent = () => {
+    if (currentView === 'game') {
+      // If state is 'game', render the Game view.
+      return <Game player={player} players={players} dealer={dealer} holeCards={holeCards} communityCards={communityCards} />;
+    } else {
+      // Otherwise (if state is 'default'), render the StartGame view.
+      return <StartGame submit={submit} />;
+    }
   };
 
   return (
     <>
-      <h1>Start a game</h1>
-      <form onSubmit={submit}>
-        <label htmlFor="name">Name</label>
-	<input type="text" name="name" id="name" />
-        <button type="submit">Start game</button>
-      </form>
+      <div className="container h-100">
+
+      {renderContent()}
+      
+      </div>
     </>
   );
 }

@@ -14,6 +14,13 @@ pub struct PlayerHand {
 /// Messages to send to players.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Msg {
+    Player {
+        name: String,
+        bank_roll: usize,
+    },
+    HoleCards {
+        cards: (Card, Card),
+    },
     Bet {
         player: String,
         bet: Bet,
@@ -24,12 +31,14 @@ pub enum Msg {
     }, // (name, bank roll)
     GameWinner(Winner),
     RoundWinner(Winner),
-    StageDeclare(Stage),
+    StageDeclare(Stage, Vec<Card>),
 }
 /// Implementation of Display trait for Msg.
 impl Display for Msg {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Msg::Player { name, bank_roll } => write!(f, "Playing as {} ({})", name, bank_roll),
+            Msg::HoleCards { cards } => write!(f, "Received hole cards {}, {}", cards.0, cards.1),
             Msg::Bet { player, bet } => write!(f, "{} made bet {}", player, bet),
             Msg::PlayersInfo { players, dealer } => {
                 write!(
@@ -50,7 +59,14 @@ impl Display for Msg {
             }
             Msg::GameWinner(winner) => write!(f, "Won the game: {}", winner),
             Msg::RoundWinner(winner) => write!(f, "Won the round: {}", winner),
-            Msg::StageDeclare(stage) => write!(f, "{}", stage),
+            Msg::StageDeclare(stage, community_cards) => {
+                let cards_str = community_cards
+                    .iter()
+                    .map(|c| std::format!("{}", c))
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                write!(f, "{}, community cards: {}", stage, cards_str)
+            }
         }
     }
 }
@@ -82,6 +98,12 @@ impl Display for Winner {
 /// The Actor trait is the component part of players which places bets
 /// and responds to messages.
 pub trait Actor: Debug {
+    /// Accept the name and bank roll at the beginning of the game.
+    fn set_name_and_bank_roll(&self, name: &String, bank_roll: usize) -> ();
+
+    /// Accept the hole cards at the beginning of a round.
+    fn hole_cards(&self, hole_cards: (Card, Card)) -> ();
+
     /// Place a bet.
     fn place_bet(
         &mut self,
@@ -119,6 +141,22 @@ impl Player {
             actor: Box::new(actor),
         }
     }
+
+    /// Set name and bank roll at the beginning of a game. Needed because
+    /// the name might need to be changed to become unique, and so that
+    /// this info can be passed to remote clients.
+    pub fn set_name_and_bank_roll(&mut self, name: &String, bank_roll: usize) {
+        self.name = name.clone();
+        self.bank_roll = bank_roll;
+        self.actor.set_name_and_bank_roll(name, bank_roll);
+    }
+
+    /// Accept the hole cards and pass them on to the actor.
+    pub fn hole_cards(&mut self, (h1, h2): (Card, Card)) {
+        self.hole = Some((h1, h2));
+        self.actor.hole_cards((h1, h2));
+    }
+
     /// Place a bet by asking the actor to do it.
     pub fn place_bet(&mut self, args: BetArgs) -> Option<Bet> {
         if !self.all_in && !self.folded {

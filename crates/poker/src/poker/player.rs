@@ -14,36 +14,43 @@ pub struct PlayerHand {
 /// Messages to send to players.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Msg {
-    Bet { player: String, bet: Bet },
-    PlayersInfo(Vec<(String, usize)>), // (name, bank roll)
-    Misc(String),
-    Game(Winner),
+    Bet {
+        player: String,
+        bet: Bet,
+    },
+    PlayersInfo {
+        players: Vec<(String, usize)>,
+        dealer: String,
+    }, // (name, bank roll)
+    GameWinner(Winner),
     RoundWinner(Winner),
-    Round(Stage),
+    StageDeclare(Stage),
 }
 /// Implementation of Display trait for Msg.
 impl Display for Msg {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Msg::Bet { player, bet } => write!(f, "{} made bet {}", player, bet),
-            Msg::PlayersInfo(players) => {
+            Msg::PlayersInfo { players, dealer } => {
                 write!(
                     f,
                     "Playing with {}",
                     players
                         .iter()
-                        .map(|(player_name, bank_roll)| player_name.clone()
-                            + " ("
-                            + &bank_roll.to_string()
-                            + ")")
+                        .map(|(player_name, bank_roll)| {
+                            let mut name = player_name.clone();
+                            if player_name == dealer {
+                                name += " [Dealer]";
+                            }
+                            name + " (" + &bank_roll.to_string() + ")"
+                        })
                         .collect::<Vec<String>>()
                         .join(", ")
                 )
             }
-            Msg::Misc(msg) => write!(f, "{}", msg),
-            Msg::Game(winner) => write!(f, "Won the game: {}", winner),
+            Msg::GameWinner(winner) => write!(f, "Won the game: {}", winner),
             Msg::RoundWinner(winner) => write!(f, "Won the round: {}", winner),
-            Msg::Round(stage) => write!(f, "{}", stage),
+            Msg::StageDeclare(stage) => write!(f, "{}", stage),
         }
     }
 }
@@ -51,14 +58,14 @@ impl Display for Msg {
 /// Enum for representing the winner(s) of a round.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Winner {
-    Winner(PlayerHand),
+    SoleWinner(PlayerHand),
     Draw(Vec<PlayerHand>),
 }
 /// Implementation of Display trait for Winner.
 impl Display for Winner {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Winner::Winner(PlayerHand { name, hand, .. }) => {
+            Winner::SoleWinner(PlayerHand { name, hand, .. }) => {
                 write!(f, "Winner: {} ({})", name, hand)
             }
             Winner::Draw(hands) => {

@@ -5,8 +5,8 @@ use poker::poker::{
     betting_strategy::BetArgs,
     card::{Card, Hand},
     compare::best_hand,
-    game::Bet,
-    player::{Actor, Msg},
+    game::{Bet, Stage},
+    player::{Actor, Msg, Winner},
 };
 use serde::{Deserialize, Serialize};
 use std::sync::mpsc as std_mpsc;
@@ -28,8 +28,22 @@ pub enum PokerMessage {
     PlayerBet(Bet),
 
     // Server -> Client messages
-    General {
-        msg: Msg,
+    BetPlaced {
+        player: String,
+        bet: Bet,
+    },
+    PlayersInfo {
+        players: Vec<(String, usize)>,
+        dealer: String,
+    },
+    GameWinner {
+        winner: Winner,
+    },
+    RoundWinner {
+        winner: Winner,
+    },
+    StageDecl {
+        stage: Stage,
     },
     PlaceBet {
         args: BetArgs,
@@ -239,8 +253,25 @@ impl Actor for RemoteActor {
 
     /// Update (Synchronous, Non-Blocking).
     fn update(&self, msg: &Msg) {
+        println!("Sending {}", msg);
         // Convert the synchronous Msg into the asynchronous PokerMessage
-        let poker_msg = PokerMessage::General { msg: msg.clone() };
+        let poker_msg = match msg {
+            Msg::Bet { player, bet } => PokerMessage::BetPlaced {
+                player: player.clone(),
+                bet: *bet,
+            },
+            Msg::PlayersInfo { players, dealer } => PokerMessage::PlayersInfo {
+                players: players.clone(),
+                dealer: dealer.clone(),
+            },
+            Msg::GameWinner(winner) => PokerMessage::GameWinner {
+                winner: winner.clone(),
+            },
+            Msg::RoundWinner(winner) => PokerMessage::RoundWinner {
+                winner: winner.clone(),
+            },
+            Msg::StageDeclare(stage) => PokerMessage::StageDecl { stage: *stage },
+        };
         let tx = self.handle.update_tx.clone();
         self.runtime_handle.spawn(async move {
             if let Err(e) = tx.send(poker_msg).await {

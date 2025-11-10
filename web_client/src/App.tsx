@@ -1,11 +1,8 @@
 /**
 Poker web app.
 **/
-import { FormEvent, useEffect, useState } from "react";
-//import { Card, IncomingPokerMessage } from './poker_messages';
-import * as PM from './poker_messages';
-
-type ItemTuple = [string, number];
+import { FormEvent, useEffect, useState, useCallback } from "react";
+import type { ItemTuple, Card, IncomingPokerMessage } from './poker_messages';
 
 function App() {
   
@@ -15,34 +12,86 @@ function App() {
   const [bankRoll, setBankRoll] = useState<number>(0);
   const [socket, setSocket] = useState<WebSocket | undefined>(undefined);
 
-  useEffect(() => {
-    const socket = new WebSocket("ws://127.0.0.1:3000/");
-    socket.onmessage = (e: MessageEvent<string>) =>
-      handleMessage(e.data);
-    setSocket(socket);
-  }, []);
+  // State to track the connection status (Not connected, Connecting, Connected)
+  const [connectionStatus, setConnectionStatus] = useState<'Disconnected' | 'Connecting' | 'Connected'>('Disconnected');
 
-  const handleMessage = (msg: object) => {
+  const handleMessage = useCallback((data: string) => {
+    if (connectionStatus !== 'Connected') {
+      setConnectionStatus('Connected');
+    }
     try {
-      const rawMessage = JSON.parse(event.data);
+      console.log(`Unparsed: ${data}`);
+      const rawMessage = JSON.parse(data);
       // map the incoming JSON key into our union type.
       const typeKey = Object.keys(rawMessage)[0];
-      const message: PM.IncomingPokerMessage = {
-        type: typeKey as PM.IncomingPokerMessage['type'],
-	...rawMessage[typeKey] // spread the inner payload
-      };
+      const payload = rawMessage[typeKey];
+      
+      console.log(`Incoming message type: ${typeKey}`);
 
+      const message = {
+          type: typeKey as IncomingPokerMessage['type'],
+	  ...(payload as object) // spread the inner payload
+        } as IncomingPokerMessage;
+	
+      /*let message: IncomingPokerMessage;
+
+      if (typeKey === 'PlayersInfo' && Array.isArray(payload)) {
+        message = {
+          type: 'PlayersInfo',
+	  players: payload as ItemTuple[]
+        } as IncomingPokerMessage;
+      } else if (typeKey === 'StageDecl') {
+        message = {
+          type: 'StageDecl',
+	  stage: payload as string
+        } as IncomingPokerMessage;
+      } else {
+        message = {
+          type: typeKey as IncomingPokerMessage['type'],
+	  ...(payload as object) // spread the inner payload
+        } as IncomingPokerMessage;
+      }*/
+
+      console.log('Message parsed as:');
       console.log(message);
 
       // Type narrowing using the discriminator.
       switch (message.type) {
-        case 'General':
-	  console.log(`General update: ${message.msg}`);
+        case 'PlaceBet':
+	  console.log(`Bet request. Stage: ${message.args.stage}`);
+	  // player needs to send bet back to the server
 	  break;
 
-        case 'PlaceBet':
-	  console.log(`Bet request. Pot size: ${message.args.stage}`);
-	  // send a bet back to the server.
+        case 'BetPlaced':
+	  console.log(`Player ${message.player} made bet ${message.bet}`);
+	  break;
+
+        case 'PlayersInfo':
+	  setPlayers(message.players);
+	  let playersStr = message.players.map((p) => p[0] + ' (' + p[1] + ')').join(", ");
+	  console.log(`Players: ${playersStr}`);
+	  // set up the UI.
+	  break;
+
+        case 'StageDecl':
+	  console.log(`Stage: ${message.stage}`);
+	  break;
+
+        case 'RoundWinner':
+	  if (message.winner.type === 'SoleWinner') {
+	    console.log(`${message.winner.name} won the round with ${message.winner.hand}`);
+          } else {
+	    let winners = message.winners.map((w) => w[0]).join(', '); 
+	    console.log(`It was a draw between ${winners}`);
+          }
+	  break;
+
+        case 'GameWinner':
+	  if (message.winner.type === 'SoleWinner') {
+	    console.log(`${message.winner.name} won the game.`);
+          } else {
+	    console.error(`Was expecting a single winner of the game, got ${message}`);
+          }
 	  break;
 
         case 'Error':
@@ -58,11 +107,41 @@ function App() {
     } catch (error) {
       console.log('Received unknown message format: ', error);
     }
-  }
+  }, [setConnectionStatus, setPlayers]);
+  
+  useEffect(() => {
+    console.log('Connecting to server.');
+    setConnectionStatus('Connecting');
+    const ws = new WebSocket("ws://127.0.0.1:3000/");
+
+    ws.onopen = () => {
+      setConnectionStatus('Connected');
+      setSocket(ws); // Store the live instance
+      console.log("WebSocket connection established (OPEN).");
+    };
+
+    ws.onmessage = (event) => {
+      // event.data contains the message payload (usually a JSON string)
+      handleMessage(event.data);
+    };
+        
+    ws.onclose = (event) => {
+      setConnectionStatus('Disconnected');
+      setSocket(null); // Clear the instance
+      console.log(`WebSocket connection closed. Code: ${event.code}, Reason: ${event.reason}`);
+    };
+
+    // Fired if there is an unrecoverable error
+    ws.onerror = (error) => {
+      setConnectionStatus('Disconnected');
+      console.error("WebSocket Error:", error);
+    };
+  }, [handleMessage, setSocket, setConnectionStatus]);
 
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!socket) return;
+    
     const form = e.target as typeof e.target & {
       name: { value: string };
     };

@@ -45,13 +45,13 @@ pub fn compare_hands(hand_a: PlayerHand, hand_b: PlayerHand) -> Winner {
     let (name_b, h_b, c_b) = (hand_b.name, hand_b.hand, hand_b.cards);
 
     if h_a > h_b {
-        Winner::Winner(PlayerHand {
+        Winner::SoleWinner(PlayerHand {
             name: name_a,
             hand: h_a,
             cards: c_a,
         })
     } else if h_b > h_a {
-        Winner::Winner(PlayerHand {
+        Winner::SoleWinner(PlayerHand {
             name: name_b,
             hand: h_b,
             cards: c_b,
@@ -74,13 +74,13 @@ pub fn compare_hands(hand_a: PlayerHand, hand_b: PlayerHand) -> Winner {
             // No draw for two 4oK
             (Hand::FourOfAKind(r1), Hand::FourOfAKind(r2)) => {
                 if r1 > r2 {
-                    Winner::Winner(PlayerHand {
+                    Winner::SoleWinner(PlayerHand {
                         name: name_a,
                         hand: h_a,
                         cards: c_a,
                     })
                 } else {
-                    Winner::Winner(PlayerHand {
+                    Winner::SoleWinner(PlayerHand {
                         name: name_b,
                         hand: h_b,
                         cards: c_b,
@@ -90,23 +90,23 @@ pub fn compare_hands(hand_a: PlayerHand, hand_b: PlayerHand) -> Winner {
             // For two full houses the highest 3oK wins, or if they are
             // the same rank, the highest pair wins. If the pairs are the same it's a draw.
             (Hand::FullHouse(r1, r3), Hand::FullHouse(r2, r4)) => match r1.cmp(&r2) {
-                Ordering::Greater => Winner::Winner(PlayerHand {
+                Ordering::Greater => Winner::SoleWinner(PlayerHand {
                     name: name_a,
                     hand: h_a,
                     cards: c_a,
                 }),
-                Ordering::Less => Winner::Winner(PlayerHand {
+                Ordering::Less => Winner::SoleWinner(PlayerHand {
                     name: name_b,
                     hand: h_b,
                     cards: c_b,
                 }),
                 Ordering::Equal => match r3.cmp(&r4) {
-                    Ordering::Greater => Winner::Winner(PlayerHand {
+                    Ordering::Greater => Winner::SoleWinner(PlayerHand {
                         name: name_a,
                         hand: h_a,
                         cards: c_a,
                     }),
-                    Ordering::Less => Winner::Winner(PlayerHand {
+                    Ordering::Less => Winner::SoleWinner(PlayerHand {
                         name: name_b,
                         hand: h_b,
                         cards: c_b,
@@ -161,13 +161,13 @@ fn highest_cards(hand_a: PlayerHand, hand_b: PlayerHand) -> Winner {
     // Compare card by card.
     for (card_a, card_b) in c_a.iter().zip(c_b.iter()) {
         if card_a.rank > card_b.rank {
-            return Winner::Winner(PlayerHand {
+            return Winner::SoleWinner(PlayerHand {
                 name: name_a,
                 hand: h_a,
                 cards: c_a,
             });
         } else if card_b.rank > card_a.rank {
-            return Winner::Winner(PlayerHand {
+            return Winner::SoleWinner(PlayerHand {
                 name: name_b,
                 hand: h_b,
                 cards: c_b,
@@ -224,7 +224,9 @@ mod tests {
                     winners.len()
                 );
             }
-            Winner::Winner(PlayerHand { name, .. }) => panic!("Expected a draw but {} won.", name),
+            Winner::SoleWinner(PlayerHand { name, .. }) => {
+                panic!("Expected a draw but {} won.", name)
+            }
         }
         let c1 = Vec::from(HIGH_CARD_TEN);
         let p3 = "player3";
@@ -246,7 +248,7 @@ mod tests {
             Winner::Draw(_winners) => {
                 panic!("Expected a win for p3, draw");
             }
-            Winner::Winner(PlayerHand { name, .. }) => {
+            Winner::SoleWinner(PlayerHand { name, .. }) => {
                 assert!(name == p3, "Expected p3, was {}.", name)
             }
         }
@@ -280,7 +282,9 @@ mod tests {
                     winners.len()
                 );
             }
-            Winner::Winner(PlayerHand { name, .. }) => panic!("Expected a draw but {} won.", name),
+            Winner::SoleWinner(PlayerHand { name, .. }) => {
+                panic!("Expected a draw but {} won.", name)
+            }
         }
     }
 

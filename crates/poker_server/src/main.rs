@@ -23,6 +23,7 @@ use std::{env, net::SocketAddr};
 pub enum GameRequest {
     NewGame { name: String },
     JoinGame { game_id: String, username: String },
+    HandShake(u8),
 }
 
 /// Extractor for establishing WebSocket connections.
@@ -49,6 +50,7 @@ async fn handle_socket(mut socket: WebSocket, remote_addr: SocketAddr) {
                         game_handler(name, socket, runtime_handle).await;
                     }
                     GameRequest::JoinGame { .. } => {}
+                    GameRequest::HandShake(..) => {}
                 }
             }
         } else {

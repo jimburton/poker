@@ -2,6 +2,7 @@
 use crate::poker::{
     card::{Card, new_deck},
     compare::{best_hand, compare_hands},
+    names::uniquify_name,
     player::{Msg, Player, PlayerHand, Winner},
     rotate_vector,
 };
@@ -15,6 +16,10 @@ use std::{
 use uuid::Uuid;
 
 use super::betting_strategy::BetArgs;
+
+// minimum and maximum number of players in a game.
+const MIN_PLAYERS: u8 = 2;
+const MAX_PLAYERS: u8 = 6;
 
 /// Enum for representing the stage of a round.
 #[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
@@ -112,6 +117,12 @@ impl Game {
             num_rounds: 0,
             uuid: Uuid::new_v4(),
         };
+        if max_players > MAX_PLAYERS {
+            panic!("The maximum number of players is {}", MAX_PLAYERS);
+        }
+        if max_players < MIN_PLAYERS {
+            panic!("The minimum number of players is {}", MIN_PLAYERS);
+        }
         let mut deck = new_deck();
         let mut rng = rng();
         deck.shuffle(&mut rng);
@@ -129,13 +140,15 @@ impl Game {
         self.players.len() == num_players
     }
 
-    /// Allows a player to join the game. The player's bank roll is set to the buy in amount.
-    /// TODO uniquify name.
+    /// Allows a player to join the game. The new player's bank roll will be equal to the buy in amount.
+    /// The player's name may be changed to make it unique among existing players. The player
+    /// instance is notified of the name and bank roll via Player::set_name_and_bank_roll.
     pub fn join(&mut self, mut player: Player) -> Result<(), &'static str> {
         if self.full() {
             return Err("Cannot add more players.");
         }
-        let name = player.name.clone();
+        let names: Vec<String> = self.players.values().map(|p| p.name.clone()).collect();
+        let name = uniquify_name(&player.name, &names);
         player.set_name_and_bank_roll(&name, self.buy_in);
         self.players.insert(name.clone(), Box::new(player));
         self.players_order.push(name);

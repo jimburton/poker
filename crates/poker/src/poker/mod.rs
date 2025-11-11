@@ -6,6 +6,7 @@ pub mod betting_strategy;
 pub mod card;
 pub mod compare;
 pub mod game;
+pub mod names;
 pub mod player;
 pub mod sequence;
 mod test_data;

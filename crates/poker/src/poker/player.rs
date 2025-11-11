@@ -1,7 +1,9 @@
 /// Datatypes and functions for players in the game.
-use crate::poker::betting_strategy::BetArgs;
-use crate::poker::card::{Card, Hand};
-use crate::poker::game::{Bet, Stage};
+use crate::poker::{
+    betting_strategy::BetArgs,
+    card::{Card, Hand},
+    game::{Bet, Stage},
+};
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Debug, Display};
 
@@ -217,7 +219,7 @@ impl Player {
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    use crate::poker::AutoActor;
     #[test]
     fn test_build() {
         let player = Player::build("James", AutoActor::new());

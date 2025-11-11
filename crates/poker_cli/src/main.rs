@@ -12,7 +12,6 @@ use poker::poker::{
 fn main() {
     let players = vec![
         Player::build("James", CLIPlayer {}),
-        Player::build("Bob", AutoActor::new()),
         Player::build("Alice", AutoActor::new()),
         Player::build("Dileas", AutoActor::build(modest_betting_strategy)),
         Player::build("Evie", AutoActor::build(six_max)),

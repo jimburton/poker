@@ -4,7 +4,7 @@ html, body {
     width: 100%;
     margin: 0;
     font-family: system-ui, -apple-system, sans-serif;
-    color: white; /* Default text color */
+    color: black; /* Default text color */
 }
 
 #root {
@@ -13,13 +13,13 @@ html, body {
     margin: 0;
 }
 
-/* --- Row Height Definitions (10% | 80% | 10% of Viewport Height) --- */
+/* --- Row Height Definitions (15% | 60% | 25% of Viewport Height) --- */
 #row1, #row3 {
-    height: 10vh; /* 10% of Viewport Height */
+    height: 15vh; /* 10% of Viewport Height */
 }
 
 #row3 {
-    height: 30vh; /* 10% of Viewport Height */
+    height: 25vh; /* 10% of Viewport Height */
 }
 
 #row2 {
@@ -44,7 +44,6 @@ html, body {
 
 /* Custom styling for visibility */
 .grid-cell {
-    border: 1px solid rgba(255, 255, 255, 0.4);
     font-weight: bold;
     text-align: center;
 }
@@ -64,4 +63,28 @@ img.holeCard {
    width:100px;
    height: auto;
    margin-right: 30px;
+}
+
+img.opponentCardH {
+   width:100px;
+   height: auto;
+   margin-bottom: 5px;
+}
+
+img.opponentCardV {
+   height:100px;
+   width: auto;
+   margin-right: 5px;
+}
+
+img.dealerIcon {
+   height:50px;
+   width: auto;
+   margin-right: 5px;
+   margin-bottom: 5px;
+}
+
+.bet-spinner {
+    width: 75px;
+    margin-top: 10px;
 }

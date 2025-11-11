@@ -11,12 +11,17 @@ function App() {
   const [players, setPlayers] = useState<ItemTuple[]>([]);
   const [stage, setStage] = useState<string>("");
   const [player, setPlayer] = useState<Player | null>(null);
+  const [playerName, setPlayerName] = useState<string>('');
   const [bankRoll, setBankRoll] = useState<number>(0);
   const [socket, setSocket] = useState<WebSocket | undefined>(undefined);
   const [currentView, setCurrentView] = useState<string>('default');
   const [dealer, setDealer] = useState<string>('');
   const [holeCards, setHoleCards] = useState<string[]>([]);
   const [communityCards, setCommunityCards] = useState<string[]>([]);
+  const [possibleBets, setPossibleBets] = useState<string[]>(['Fold']);
+  const [bestHand, setBestHand] = useState<Hand | null>(null);
+  const [call, setCall] = useState<number>(0);
+  const [minBet, setMinBet] = useState<number>(0);
 
   // State to track the connection status (Not connected, Connecting, Connected)
   const [connectionStatus, setConnectionStatus] = useState<'Disconnected' | 'Connecting' | 'Connected'>('Disconnected');
@@ -61,11 +66,8 @@ function App() {
       switch (message.type) {
 
         case 'Player':
-	  const player = {
-	    name: message.name,
-	    bank_roll: message.bank_roll
-          } as Player;
-	  setPlayer(player);
+	  setPlayerName(message.name);
+	  setBankRoll(message.bank_roll);
 	  break
 	  
         case 'HoleCards':
@@ -76,6 +78,24 @@ function App() {
 	  console.log(`Bet request. Stage: ${message.args.stage}`);
 	  parseHoleCards(message.hole_cards);
 	  parseCommunityCards(message.args.community_cards);
+	  setBankRoll(message.bank_roll);
+	  setBestHand(message.best_hand);
+	  setCall(message.args.call);
+	  setMinBet(message.args.min);
+	  let bets: string[] = ['Fold'];
+	  if (message.bank_roll > 0) {
+            bets.push('AllIn');
+          }
+	  if (message.args.call === 0) {
+            bets.push('Check');
+          }
+	  if (message.args.call < bankRoll) {
+            bets.push('Call')
+          }
+	  if (message.args.call + message.args.min < message.bank_roll) {
+            bets.push('Raise');
+          }
+	  setPossibleBets(bets);
 	  // player needs to send bet back to the server
 	  break;
 
@@ -127,7 +147,8 @@ function App() {
     } catch (error) {
       console.log('Received unknown message format: ', error);
     }
-  }, [setConnectionStatus, setPlayers]);
+  }, [setConnectionStatus, setPlayers, setBankRoll, setCall, setPlayerName, setPossibleBets,
+      setMinBet, setCurrentView, setBestHand, setHoleCards, setCommunityCards, dealer]);
   
   useEffect(() => {
     console.log('Connecting to server.');
@@ -172,11 +193,57 @@ function App() {
     socket.send(JSON.stringify(join_msg));
   };
 
+  const placeBet = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!socket) return;
+
+    console.log(e);
+    let btn = e.nativeEvent.submitter.name;
+    console.log(btn);
+
+    const form = e.target as typeof e.target & {
+      amount: { value: number };
+    };
+
+    let bet;
+    switch (btn) {
+      case 'Fold':
+        bet = {
+          PlayerBet: 'Fold'
+        };
+        break;
+      case 'Check':
+        bet = {
+	  PlayerBet: 'Check'
+        };
+        break;
+      case 'Call':
+        bet = {
+	  PlayerBet: {Call: form.amount}
+        } ;
+        break;
+      case 'Raise':
+        bet = {
+	  PlayerBet: {Raise: form.amount}
+        };
+        break;
+      case 'AllIn':
+        bet = {
+	  PlayerBet: {AllIn: form.amount}
+        };
+        break;
+    }
+    console.log(bet);
+  };
+
   // The logic for conditional rendering
   const renderContent = () => {
     if (currentView === 'game') {
       // If state is 'game', render the Game view.
-      return <Game player={player} players={players} dealer={dealer} holeCards={holeCards} communityCards={communityCards} />;
+      return <Game playerName={playerName} bankRoll={bankRoll}
+                   players={players} dealer={dealer} holeCards={holeCards}
+		   communityCards={communityCards} possibleBets={possibleBets}
+		   bestHand={bestHand} call={call} minBet={minBet} placeBet={placeBet} />;
     } else {
       // Otherwise (if state is 'default'), render the StartGame view.
       return <StartGame submit={submit} />;

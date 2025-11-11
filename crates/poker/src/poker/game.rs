@@ -1,8 +1,8 @@
 /// Datatypes and functions for the game and individual rounds.
 use crate::poker::{
-    card::{Card, new_deck},
-    compare::{best_hand, compare_hands},
-    names::uniquify_name,
+    card,
+    card::Card,
+    compare, names,
     player::{Msg, Player, PlayerHand, Winner},
     rotate_vector,
 };
@@ -123,7 +123,7 @@ impl Game {
         if max_players < MIN_PLAYERS {
             panic!("The minimum number of players is {}", MIN_PLAYERS);
         }
-        let mut deck = new_deck();
+        let mut deck = card::new_deck();
         let mut rng = rng();
         deck.shuffle(&mut rng);
         game.deck = deck;
@@ -148,7 +148,7 @@ impl Game {
             return Err("Cannot add more players.");
         }
         let names: Vec<String> = self.players.values().map(|p| p.name.clone()).collect();
-        let name = uniquify_name(&player.name, &names);
+        let name = names::uniquify_name(&player.name, &names);
         player.set_name_and_bank_roll(&name, self.buy_in);
         self.players.insert(name.clone(), Box::new(player));
         self.players_order.push(name);
@@ -179,7 +179,7 @@ impl Game {
             cards.push(h1);
             cards.push(h2);
             let name = winner.name.clone();
-            let hand = best_hand(&cards);
+            let hand = compare::best_hand(&cards);
             Winner::SoleWinner(PlayerHand { name, hand, cards })
         } else {
             panic!("Announcing winner but they have been removed...")
@@ -188,16 +188,13 @@ impl Game {
 
     /// Announce the players at the beginning of a round.
     fn announce_players(&self) {
-        let players_info = self
-            .players
-            .values()
-            .map(|player| (player.name.clone(), player.bank_roll))
+        let players = self
+            .players_order
+            .iter()
+            .map(|name| (name.clone(), self.players.get(name).unwrap().bank_roll))
             .collect();
         let dealer = self.dealer.as_ref().unwrap().clone();
-        let msg = Msg::PlayersInfo {
-            players: players_info,
-            dealer,
-        };
+        let msg = Msg::PlayersInfo { players, dealer };
         self.update_players(&msg);
     }
 
@@ -511,7 +508,7 @@ impl Game {
                 all_cards.push(c1);
                 all_cards.push(c2);
 
-                let best_hand = best_hand(&all_cards);
+                let best_hand = compare::best_hand(&all_cards);
                 Some(PlayerHand {
                     name: p.name.clone(),
                     hand: best_hand,
@@ -572,7 +569,7 @@ impl Game {
                     cards: w_cards,
                 }) => {
                     // Compare the current winner (w_...) against the challenger (challenger_...)
-                    compare_hands(
+                    compare::compare_hands(
                         PlayerHand {
                             name: challenger_name,
                             hand: challenger_hand,
@@ -594,7 +591,7 @@ impl Game {
                         cards: w_cards_benchmark,
                     } = draw_winners.pop().unwrap();
 
-                    let comparison_result = compare_hands(
+                    let comparison_result = compare::compare_hands(
                         PlayerHand {
                             name: challenger_name.clone(),
                             hand: challenger_hand,
@@ -671,7 +668,7 @@ impl Game {
                 (
                     PlayerHand {
                         name: p.name.clone(),
-                        hand: best_hand(&cards),
+                        hand: compare::best_hand(&cards),
                         cards,
                     },
                     p.all_in,
@@ -880,7 +877,7 @@ impl Game {
         self.pot = 0;
         self.side_pots = Vec::new();
         self.community_cards = Vec::new();
-        self.deck = new_deck();
+        self.deck = card::new_deck();
         let dealer_name_ref: Option<&String> = self.dealer.as_ref();
 
         let mut removed_names: Vec<String> = Vec::new();

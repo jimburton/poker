@@ -3,9 +3,8 @@ use crate::poker::{
     card::{Card, Hand, Rank},
     game::{Bet, Stage},
 };
-
-use super::compare::best_hand;
-use super::sequence::same_suit;
+use crate::poker::{compare, sequence};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 /// Struct for arguments to place_bet.
@@ -41,18 +40,26 @@ pub fn default_betting_strategy(args: BetArgs, _hole_cards: (Card, Card), bank_r
 /// Modest betting strategy, which will:
 ///
 /// + fold if necessary,
-/// + goes all in if neccessary,
-/// + bet the minimum amount if currently zero,
-/// + call the bet.
+/// + go all in if neccessary,
+/// + toss a coin to choose between betting some value not more than twice
+///   the minimum amount and calling the bet.
 pub fn modest_betting_strategy(args: BetArgs, _hole_cards: (Card, Card), bank_roll: usize) -> Bet {
     if bank_roll == 0 {
         Bet::Fold
     } else if bank_roll <= args.call {
         Bet::AllIn(bank_roll)
-    } else if args.call == 0 {
-        Bet::Raise(args.min)
     } else {
-        Bet::Call
+        // toss a coin between raising and calling.
+        if rand::random() {
+            // choose a value between min and min*2 or one chip less than bank_roll
+            // , whichever is lower.
+            let max = std::cmp::min(args.min * 2, bank_roll - 1);
+            let mut rng = rand::rng();
+            let amount = rng.random_range(args.min..max);
+            Bet::Raise(amount)
+        } else {
+            Bet::Call
+        }
     }
 }
 
@@ -64,7 +71,7 @@ pub fn six_max(args: BetArgs, hole_cards: (Card, Card), bank_roll: usize) -> Bet
     cards.push(hole_cards.0);
     cards.push(hole_cards.1);
     cards.sort();
-    let hand = best_hand(&cards);
+    let hand = compare::best_hand(&cards);
     let bet = std::cmp::min(bank_roll, args.call + args.min);
     let folding = bank_roll == 0;
     let all_in = bank_roll < args.call;
@@ -83,7 +90,7 @@ pub fn six_max(args: BetArgs, hole_cards: (Card, Card), bank_roll: usize) -> Bet
     }
     if let Stage::PreFlop = args.stage {
         // the only cards in cards are the hole cards.
-        let same_suit = same_suit(&cards);
+        let same_suit = sequence::same_suit(&cards);
         // if the hole cards are a pair, raise.
         if let Hand::OnePair(..) = hand {
             make_bet(bet, folding, all_in, raising, args.cycle)

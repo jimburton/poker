@@ -275,7 +275,6 @@ impl Actor for RemoteActor {
 
     /// Update (Synchronous, Non-Blocking).
     fn update(&self, msg: &Msg) {
-        println!("Sending {}", msg);
         // Convert the synchronous Msg into the asynchronous PokerMessage
         let poker_msg = match msg {
             Msg::Player { name, bank_roll } => PokerMessage::Player {

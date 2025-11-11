@@ -73,7 +73,12 @@ interface AllIn {
   amount: number;
 }
 
-export type Bet = 'Check' | 'Call' | 'Fold' | Raise | AllIn;
+interface Call {
+  type: 'Call';
+  amount: number;
+}
+
+export type Bet = 'Check' | Call | 'Fold' | Raise | AllIn;
 
 // Message that another player placed a bet.
 interface BetPlacedMessage {

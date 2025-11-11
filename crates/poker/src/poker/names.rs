@@ -1,7 +1,7 @@
-use std::collections::HashSet;
-
 /// Functions for generating and uniquifying names.
 use rand::Rng;
+use std::collections::HashSet;
+
 // Common names from around the world.
 const NAMES: [&str; 12] = [
     "Bob", "Alice", "Cali", "Arjun", "Bianca", "Kalyna", "Chen", "Zhu", "Cielo", "Eva", "Franco",

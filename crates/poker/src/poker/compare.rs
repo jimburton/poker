@@ -4,17 +4,17 @@ use std::cmp::Ordering;
 use crate::poker::card::{Card, Hand};
 use crate::poker::{
     player::{PlayerHand, Winner},
-    sequence::{group_by_rank, group_by_suit, longest_sequence, same_suit},
+    sequence,
 };
 
 /// Get the best hand from a collection of cards.
 pub fn best_hand(cards: &[Card]) -> Hand {
     let mut cs = cards.to_owned();
     cs.sort_by(|a, b| b.rank.cmp(&a.rank));
-    let ls = longest_sequence(&cs);
-    let ranks = group_by_rank(cards);
-    let suits = group_by_suit(cards);
-    if same_suit(cards) && ls.len() == 5 {
+    let ls = sequence::longest_sequence(&cs);
+    let ranks = sequence::group_by_rank(cards);
+    let suits = sequence::group_by_suit(cards);
+    if sequence::same_suit(cards) && ls.len() == 5 {
         Hand::StraightFlush(cards[cards.len() - 1].rank)
     } else if !ranks.is_empty() && ranks[0].len() == 4 {
         Hand::FourOfAKind(ranks[0][0].rank)

@@ -1,5 +1,6 @@
 use crate::poker::{
-    betting_strategy::{BetArgs, BettingStrategy, default_betting_strategy},
+    betting_strategy,
+    betting_strategy::{BetArgs, BettingStrategy},
     card::Card,
     game::Bet,
     player::{Actor, Msg},
@@ -16,7 +17,7 @@ impl AutoActor {
     /// Construct a new Player instance.
     pub fn new() -> Self {
         AutoActor {
-            betting_strategy: default_betting_strategy,
+            betting_strategy: betting_strategy::default_betting_strategy,
         }
     }
     /// Construct a new Player instance with the supplied strategy.

@@ -443,6 +443,7 @@ impl Game {
                     let update = Msg::Bet {
                         player: p.name.clone(),
                         bet,
+                        pot: self.pot,
                     };
                     self.update_players(&update);
                 }

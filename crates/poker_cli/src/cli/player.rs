@@ -68,8 +68,8 @@ impl Actor for CLIPlayer {
             Msg::HoleCards { cards } => {
                 println!("Received hole cards: {}, {}", cards.0, cards.1);
             }
-            Msg::Bet { player, bet } => {
-                println!("Player {} made bet: {}", player, bet);
+            Msg::Bet { player, bet, pot } => {
+                println!("Player {} made bet: {} (pot is now {})", player, bet, pot);
             }
             Msg::PlayersInfo { players, dealer } => {
                 println!(

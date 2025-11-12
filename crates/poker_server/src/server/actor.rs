@@ -38,6 +38,7 @@ pub enum PokerMessage {
     BetPlaced {
         player: String,
         bet: Bet,
+        pot: usize,
     },
     PlayersInfo {
         players: Vec<(String, usize)>,
@@ -114,7 +115,9 @@ async fn start_socket_loop(
                 if let Some(msg) = socket.recv().await {
                     match msg {
                         Ok(Message::Text(utf8_bytes)) => {
+                println!("Received bytes: {:?}", utf8_bytes);
                 let bet = safe_deserialise::<PokerMessage>(&utf8_bytes);
+                println!("Deserialised as: {:?}", bet);
                             // Extract the bet action
                             let final_bet = match bet {
                                 Some(PokerMessage::PlayerBet(b)) => Some(b),
@@ -225,6 +228,7 @@ impl Actor for RemoteActor {
         hole_cards: (Card, Card),
         bank_roll: usize,
     ) -> Option<Bet> {
+        println!("Sending bet request: {:?}", args.clone());
         // Create a standard library blocking MPSC channel for the final result.
         // This is safe for blocking the calling thread, even if it's a Tokio worker.
         let (sync_tx, sync_rx) = std_mpsc::channel();
@@ -275,6 +279,7 @@ impl Actor for RemoteActor {
 
     /// Update (Synchronous, Non-Blocking).
     fn update(&self, msg: &Msg) {
+        println!("Sending update: {}", msg);
         // Convert the synchronous Msg into the asynchronous PokerMessage
         let poker_msg = match msg {
             Msg::Player { name, bank_roll } => PokerMessage::Player {
@@ -282,9 +287,10 @@ impl Actor for RemoteActor {
                 bank_roll: *bank_roll,
             },
             Msg::HoleCards { cards } => PokerMessage::HoleCards { cards: *cards },
-            Msg::Bet { player, bet } => PokerMessage::BetPlaced {
+            Msg::Bet { player, bet, pot } => PokerMessage::BetPlaced {
                 player: player.clone(),
                 bet: *bet,
+                pot: *pot,
             },
             Msg::PlayersInfo { players, dealer } => PokerMessage::PlayersInfo {
                 players: players.clone(),

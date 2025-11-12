@@ -85,6 +85,7 @@ interface BetPlacedMessage {
     type: 'BetPlaced'; // Discriminator
     player: string;
     bet: Bet;
+    pot: number;
 }
 
 // Players info message.

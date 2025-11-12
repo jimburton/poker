@@ -1,6 +1,6 @@
 export default function Game( { playerName, bankRoll, players, dealer, holeCards,
                                 communityCards, possibleBets, bestHand, call, minBet,
-				placeBet }) {
+				placeBet, pot }) {
 
   const playerIndex = players.findIndex((p) => p[0] === playerName);
   console.log(playerIndex);
@@ -71,8 +71,22 @@ export default function Game( { playerName, bankRoll, players, dealer, holeCards
 		  
             </div>
                 
-                <div className="custom-col-width-center grid-cell d-flex justify-content-center align-items-center">
-                    <span className="fs-4">MIDDLE ROW (80vh)</span>
+                <div className="custom-col-width-center grid-cell d-flex justify-content-center align-items-center" id="communityCardsCol">
+                    
+                      {communityCards &&
+
+                        <div className="row">
+                          {communityCards.map((c) =>
+			    <div className="col" key={`${c}_row`}>
+                              <img src={`/images/cards/${c}.svg`} className='communityCard' alt={`${c}`} key={`${c}_img`} />
+                            </div>)}
+                        </div>
+                   
+                      }
+                    <br />
+                    <span className="fs-4">
+		    pot: {pot}
+		    </span>
                 </div>
                 
                 <div className="custom-col-width grid-cell d-flex justify-content-center align-items-center" id="player3-col">
@@ -123,8 +137,8 @@ export default function Game( { playerName, bankRoll, players, dealer, holeCards
 		        </div>
 		      }
 		      <div className="col">
-                        {players[playerIndex][0]} <br />
-			{players[playerIndex][1]}
+                        {playerIndex && players[playerIndex] && players[playerIndex][0]} <br />
+			{playerIndex && players[playerIndex] && players[playerIndex][1]}
                       </div>
 		      <div className="col">
                         <button type="submit" className="btn btn-danger" name="Fold">Fold</button>
@@ -147,7 +161,7 @@ export default function Game( { playerName, bankRoll, players, dealer, holeCards
                         <button type="submit" className="btn btn-success" disabled={possibleBets.indexOf('Check') === -1}  name="Check">Check</button>
                       </div>
 		      <div className="col">
-                        <button type="submit" className="btn btn-success" disabled={possibleBets.indexOf('AllIn') === -1} name="AllIn">All In</button>
+                        <button type="submit" className="btn btn-danger" disabled={possibleBets.indexOf('AllIn') === -1} name="AllIn">All In</button>
                       </div>
 		      <div className="col">
                         <button type="submit" className="btn btn-success" disabled={possibleBets.indexOf('Raise') === -1} name="Raise">Raise</button>
@@ -156,7 +170,7 @@ export default function Game( { playerName, bankRoll, players, dealer, holeCards
                                name="amount"
                                min={call}
                                max={bankRoll}
-                               defaultValue={minBet} 
+                               defaultValue={call} 
                                step="10"
                                className="form-control bet-spinner" />
                       </div>

@@ -22,6 +22,7 @@ function App() {
   const [bestHand, setBestHand] = useState<Hand | null>(null);
   const [call, setCall] = useState<number>(0);
   const [minBet, setMinBet] = useState<number>(0);
+  const [pot, setPot] = useState<number>(0);
 
   // State to track the connection status (Not connected, Connecting, Connected)
   const [connectionStatus, setConnectionStatus] = useState<'Disconnected' | 'Connecting' | 'Connected'>('Disconnected');
@@ -101,6 +102,7 @@ function App() {
 
         case 'BetPlaced':
 	  console.log(`Player ${message.player} made bet ${message.bet}`);
+	  setPot(message.pot);
 	  break;
 
         case 'PlayersInfo':
@@ -118,10 +120,12 @@ function App() {
 	  break;
 
         case 'RoundWinner':
-	  if (message.winner.type === 'SoleWinner') {
-	    console.log(`${message.winner.name} won the round with ${message.winner.hand}`);
+	  const winnerType = Object.keys(message.winner)[0];
+	  const winner = message.winner[winnerType];
+	  if (winnerType === 'SoleWinner') {
+	    console.log(`${winner.name} won the round with ${JSON.stringify(winner.hand)}`);
           } else {
-	    let winners = message.winners.map((w) => w[0]).join(', '); 
+	    let winners = winner.map((w) => w[0]).join(', '); 
 	    console.log(`It was a draw between ${winners}`);
           }
 	  break;
@@ -148,7 +152,7 @@ function App() {
       console.log('Received unknown message format: ', error);
     }
   }, [setConnectionStatus, setPlayers, setBankRoll, setCall, setPlayerName, setPossibleBets,
-      setMinBet, setCurrentView, setBestHand, setHoleCards, setCommunityCards, dealer]);
+      setMinBet, setCurrentView, setBestHand, setHoleCards, setCommunityCards, setDealer]);
   
   useEffect(() => {
     console.log('Connecting to server.');
@@ -219,21 +223,25 @@ function App() {
         break;
       case 'Call':
         bet = {
-	  PlayerBet: {Call: form.amount}
+	  PlayerBet: {Call: parseInt(form.amount.value)}
         } ;
+	setBankRoll(bankRoll-form.amount.value);
         break;
       case 'Raise':
         bet = {
-	  PlayerBet: {Raise: form.amount}
+	  PlayerBet: {Raise: parseInt(form.amount.value)}
         };
         break;
+	setBankRoll(bankRoll-form.amount.value);
       case 'AllIn':
         bet = {
-	  PlayerBet: {AllIn: form.amount}
+	  PlayerBet: {AllIn: parseInt(form.amount.value)}
         };
+	setBankRoll(bankRoll-form.amount.value);
         break;
     }
     console.log(bet);
+    socket.send(JSON.stringify(bet));
   };
 
   // The logic for conditional rendering
@@ -243,7 +251,8 @@ function App() {
       return <Game playerName={playerName} bankRoll={bankRoll}
                    players={players} dealer={dealer} holeCards={holeCards}
 		   communityCards={communityCards} possibleBets={possibleBets}
-		   bestHand={bestHand} call={call} minBet={minBet} placeBet={placeBet} />;
+		   bestHand={bestHand} call={call} minBet={minBet} placeBet={placeBet}
+		   pot={pot} />;
     } else {
       // Otherwise (if state is 'default'), render the StartGame view.
       return <StartGame submit={submit} />;

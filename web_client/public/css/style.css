@@ -65,6 +65,12 @@ img.holeCard {
    margin-right: 30px;
 }
 
+img.communityCard {
+   width:100px;
+   height: auto;
+   margin-right: 30px;
+}
+
 img.opponentCardH {
    width:100px;
    height: auto;

@@ -26,6 +26,7 @@ pub enum Msg {
     Bet {
         player: String,
         bet: Bet,
+        pot: usize,
     },
     PlayersInfo {
         players: Vec<(String, usize)>,
@@ -41,7 +42,9 @@ impl Display for Msg {
         match self {
             Msg::Player { name, bank_roll } => write!(f, "Playing as {} ({})", name, bank_roll),
             Msg::HoleCards { cards } => write!(f, "Received hole cards {}, {}", cards.0, cards.1),
-            Msg::Bet { player, bet } => write!(f, "{} made bet {}", player, bet),
+            Msg::Bet { player, bet, pot } => {
+                write!(f, "{} made bet {} (pot is now {})", player, bet, pot)
+            }
             Msg::PlayersInfo { players, dealer } => {
                 write!(
                     f,

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["group_by_rank","group_by_suit","longest_sequence","same_suit"]};

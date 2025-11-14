@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["best_hand","compare_hands"]};

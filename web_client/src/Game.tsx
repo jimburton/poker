@@ -13,7 +13,7 @@ export default function Game( { playerName, bankRoll, players, dealer, holeCards
             <div className="row g-0 h-100">
                 <div className="custom-col-width grid-cell d-flex justify-content-center align-items-center"> </div>
                 
-                <div className="custom-col-width-center grid-cell d-flex justify-content-center align-items-center" id="player2-col">
+                <div className="custom-col-width-center grid-cell d-flex justify-content-center align-items-center mx-auto" id="player2-col">
 
                  <div className="container-fluid">
 		    <div className="row">
@@ -22,11 +22,11 @@ export default function Game( { playerName, bankRoll, players, dealer, holeCards
 		          <img src='/images/dealer.png' className='dealerIcon' alt='dealer button' />
 		        </div>
 		      }
-		      <div className="col">
+		      <div className="col d-flex flex-column align-items-end">
                         {players[(playerIndex+2)%players.length][0]} <br />
 			{players[(playerIndex+2)%players.length][1]}
                       </div>
-		      <div className="col">
+		      <div className="col d-flex align-items-start">
 		        <img src='/images/cards/back.svg' className='opponentCardV' alt='back of a playing card' />
 			<img src='/images/cards/back.svg' className='opponentCardV' alt='back of a playing card' />
 		      </div>
@@ -71,22 +71,27 @@ export default function Game( { playerName, bankRoll, players, dealer, holeCards
 		  
             </div>
                 
-                <div className="custom-col-width-center grid-cell d-flex justify-content-center align-items-center" id="communityCardsCol">
-                    
+                <div className="custom-col-width-center grid-cell d-flex justify-content-center align-items-center align-middle border" id="communityCardsCol">
+                    <div className="">
+                      <span>
+		        Messages.
+		      </span>
+                    </div>
                       {communityCards &&
 
-                        <div className="row">
+                        <div className="row align-middle">
                           {communityCards.map((c) =>
-			    <div className="col" key={`${c}_row`}>
+			    <div className="col align-middle" key={`${c}_row`}>
                               <img src={`/images/cards/${c}.svg`} className='communityCard' alt={`${c}`} key={`${c}_img`} />
                             </div>)}
                         </div>
                    
                       }
-                    <br />
-                    <span className="fs-4">
-		    pot: {pot}
-		    </span>
+                    <div className="align-bottom">
+                      <span className="fs-4">
+		        pot: {pot}
+		      </span>
+		    </div>
                 </div>
                 
                 <div className="custom-col-width grid-cell d-flex justify-content-center align-items-center" id="player3-col">
@@ -141,8 +146,13 @@ export default function Game( { playerName, bankRoll, players, dealer, holeCards
 			{playerIndex && players[playerIndex] && players[playerIndex][1]}
                       </div>
 		      <div className="col">
-                        <button type="submit" className="btn btn-danger" name="Fold">Fold</button>
+                          
+			    <button type="submit" className="btn btn-danger" name="Fold">Fold</button>
+                            <br />	  
+			    <button type="submit" className="btn btn-primary mt-2" disabled={possibleBets.indexOf('AllIn') === -1} name="AllIn">All In</button>
+		
                       </div>
+		      
 		      <div className="col">
                         {holeCards.length == 2 &&
                     
@@ -159,12 +169,13 @@ export default function Game( { playerName, bankRoll, players, dealer, holeCards
 		       </div>
 		       <div className="col">
                         <button type="submit" className="btn btn-success" disabled={possibleBets.indexOf('Check') === -1}  name="Check">Check</button>
+			<br />
+			<button type="submit" className="btn btn-success mt-2" disabled={possibleBets.indexOf('Call') === -1} name="Call">Call</button>
                       </div>
-		      <div className="col">
-                        <button type="submit" className="btn btn-danger" disabled={possibleBets.indexOf('AllIn') === -1} name="AllIn">All In</button>
-                      </div>
-		      <div className="col">
-                        <button type="submit" className="btn btn-success" disabled={possibleBets.indexOf('Raise') === -1} name="Raise">Raise</button>
+		      
+		      <div className="col justify-content-center align-items-center">
+                        <button type="submit" className="btn btn-success align-self-center" disabled={possibleBets.indexOf('Raise') === -1} name="Raise">Raise</button>
+			<br />
 			<input type="number" 
                                id="amountInput" 
                                name="amount"
@@ -172,10 +183,7 @@ export default function Game( { playerName, bankRoll, players, dealer, holeCards
                                max={bankRoll}
                                defaultValue={call} 
                                step="10"
-                               className="form-control bet-spinner" />
-                      </div>
-		      <div className="col">
-                        <button type="submit" className="btn btn-success" disabled={possibleBets.indexOf('Call') === -1} name="Call">Call</button>
+                               className="form-control align-self-center bet-spinner mt-2" />
                       </div>
 		     </div>
 		   </div>

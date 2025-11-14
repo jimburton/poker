@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Msg","Winner"],"struct":["Player","PlayerHand"],"trait":["Actor"]};

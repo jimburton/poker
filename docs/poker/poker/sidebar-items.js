@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["new_game_one_player","new_game_with_players","rotate_vector"],"mod":["autoactor","betting_strategy","card","compare","game","names","player","sequence"]};

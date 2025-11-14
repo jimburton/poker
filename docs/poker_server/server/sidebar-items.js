@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["safe_deserialise","send_close_message"],"mod":["actor","config","game","log_setup"]};

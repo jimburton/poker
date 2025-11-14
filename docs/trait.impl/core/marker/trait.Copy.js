@@ -1,0 +1,9 @@
+(function() {
+    var implementors = Object.fromEntries([["poker",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.91.0/core/marker/trait.Copy.html\" title=\"trait core::marker::Copy\">Copy</a> for <a class=\"enum\" href=\"poker/poker/card/enum.Hand.html\" title=\"enum poker::poker::card::Hand\">Hand</a>"],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.91.0/core/marker/trait.Copy.html\" title=\"trait core::marker::Copy\">Copy</a> for <a class=\"enum\" href=\"poker/poker/card/enum.Rank.html\" title=\"enum poker::poker::card::Rank\">Rank</a>"],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.91.0/core/marker/trait.Copy.html\" title=\"trait core::marker::Copy\">Copy</a> for <a class=\"enum\" href=\"poker/poker/card/enum.Suit.html\" title=\"enum poker::poker::card::Suit\">Suit</a>"],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.91.0/core/marker/trait.Copy.html\" title=\"trait core::marker::Copy\">Copy</a> for <a class=\"enum\" href=\"poker/poker/game/enum.Bet.html\" title=\"enum poker::poker::game::Bet\">Bet</a>"],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.91.0/core/marker/trait.Copy.html\" title=\"trait core::marker::Copy\">Copy</a> for <a class=\"enum\" href=\"poker/poker/game/enum.Stage.html\" title=\"enum poker::poker::game::Stage\">Stage</a>"],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.91.0/core/marker/trait.Copy.html\" title=\"trait core::marker::Copy\">Copy</a> for <a class=\"struct\" href=\"poker/poker/card/struct.Card.html\" title=\"struct poker::poker::card::Card\">Card</a>"]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":57,"fragment_lengths":[1541]}

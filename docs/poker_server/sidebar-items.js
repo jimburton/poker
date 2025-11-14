@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GameRequest"],"fn":["handle_socket","main","websocket_handler"],"mod":["server"]};

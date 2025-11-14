@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CHANNEL_CAPACITY"],"enum":["PokerMessage"],"fn":["start_socket_loop"],"struct":["RemoteActor","RemoteActorHandle"],"type":["BetRequest"]};

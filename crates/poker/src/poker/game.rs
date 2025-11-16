@@ -651,7 +651,6 @@ impl Game {
     ///
     /// TODO
     /// + refactor this into several smaller methods,
-    /// + keep track of chips being lost due to truncating division.
     fn distribute_pots(&mut self) {
         let winner = self.winner.clone();
         let main_pot = self.pot;
@@ -708,21 +707,11 @@ impl Game {
                     if not_folded_clone.iter().any(|(ph, _all_in)| ph.name == name) {
                         // winner is not folded
                         // distribute the main pot
-                        match winnings.get_mut(&winner_name) {
-                            Some(value) => *value += main_pot, // If the key exists, update the value
-                            None => {
-                                panic!("Key '{}' does not exist in the HashMap.", winner_name)
-                            }
-                        }
+                        *winnings.get_mut(&winner_name).unwrap() += main_pot;
                         if not_all_in.iter().any(|ph| ph.name == winner_name) {
                             // winner is not all in, they win the side pots too
                             let side_pots: usize = self.side_pots.iter().map(|sp| sp.pot).sum();
-                            match winnings.get_mut(&winner_name) {
-                                Some(value) => *value += side_pots, // If the key exists, update the value
-                                None => {
-                                    panic!("Key '{}' does not exist in the HashMap.", winner_name)
-                                }
-                            }
+                            *winnings.get_mut(&winner_name).unwrap() += side_pots;
                         } else {
                             // winner is all in, they only win side pots they contributed to
                             // distribute side pots
@@ -739,43 +728,19 @@ impl Game {
                                     .collect();
                                 if candidates.is_empty() {
                                     // everyone in this side pot has folded so the winnings go to the winner of the main pot
-                                    match winnings.get_mut(&winner_name) {
-                                        Some(value) => *value += sp.pot, // If the key exists, update the value
-                                        None => {
-                                            panic!("Key '{}' does not exist in the HashMap.", name)
-                                        }
-                                    }
+                                    *winnings.get_mut(&winner_name).unwrap() += sp.pot;
                                 } else {
                                     // players who participated in this side pot are still in the round
                                     let w = Game::determine_winner(candidates);
                                     match w {
                                         // single winner for this side pot
                                         Winner::SoleWinner(PlayerHand { name, .. }) => {
-                                            match winnings.get_mut(&name) {
-                                                Some(value) => *value += sp.pot, // If the key exists, update the value
-                                                None => panic!(
-                                                    "Key '{}' does not exist in the HashMap.",
-                                                    name
-                                                ),
-                                            }
+                                            *winnings.get_mut(&name).unwrap() += sp.pot;
                                         }
                                         // multiple winners for this side pot
                                         Winner::Draw(winners) => {
                                             let pot_share = sp.pot / winners.len();
-                                            for PlayerHand {
-                                                name,
-                                                hand: _,
-                                                cards: _,
-                                            } in winners
-                                            {
-                                                match winnings.get_mut(&name) {
-                                                    Some(value) => *value += pot_share, // If the key exists, update the value
-                                                    None => panic!(
-                                                        "Key '{}' does not exist in the HashMap.",
-                                                        name
-                                                    ),
-                                                }
-                                            }
+                                            *winnings.get_mut(&name).unwrap() += pot_share;
                                         }
                                     }
                                 }
@@ -794,10 +759,7 @@ impl Game {
                         cards: _,
                     } in winners.clone()
                     {
-                        match winnings.get_mut(&name) {
-                            Some(value) => *value += main_pot_share,
-                            None => panic!("Key '{}' does not exist in the HashMap.", name),
-                        }
+                        *winnings.get_mut(&name).unwrap() += main_pot_share;
                     }
                     //distribute side pots
                     for sp in side_pots {
@@ -819,12 +781,7 @@ impl Game {
                                 cards: _,
                             } in winners.clone()
                             {
-                                match winnings.get_mut(&name) {
-                                    Some(value) => *value += sp.pot,
-                                    None => {
-                                        panic!("Key '{}' does not exist in the HashMap.", name)
-                                    }
-                                }
+                                *winnings.get_mut(&name).unwrap() += sp.pot;
                             }
                         } else {
                             // there are unfolded players who contributed to this side pot
@@ -832,24 +789,13 @@ impl Game {
                             match w {
                                 // single winner for this side pot
                                 Winner::SoleWinner(PlayerHand { name, .. }) => {
-                                    match winnings.get_mut(&name) {
-                                        Some(value) => *value += sp.pot,
-                                        None => {
-                                            panic!("Key '{}' does not exist in the HashMap.", name)
-                                        }
-                                    }
+                                    *winnings.get_mut(&name).unwrap() += sp.pot;
                                 }
                                 // multiple winners for this side pot
                                 Winner::Draw(winners) => {
                                     let pot_share = sp.pot / winners.len();
                                     for PlayerHand { name, .. } in winners {
-                                        match winnings.get_mut(&name) {
-                                            Some(value) => *value += pot_share,
-                                            None => panic!(
-                                                "Key '{}' does not exist in the HashMap.",
-                                                name
-                                            ),
-                                        }
+                                        *winnings.get_mut(&name).unwrap() += pot_share;
                                     }
                                 }
                             }
@@ -860,10 +806,7 @@ impl Game {
             // distribute winnings
             for (name, pot_share) in winnings.clone() {
                 if pot_share > 0 {
-                    match self.players.get_mut(&name) {
-                        Some(value) => value.bank_roll += pot_share,
-                        None => panic!("Key '{}' does not exist in the HashMap.", name),
-                    }
+                    self.players.get_mut(&name).unwrap().bank_roll += pot_share;
                 }
             }
             self.pot = 0;

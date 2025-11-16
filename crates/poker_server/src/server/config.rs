@@ -111,14 +111,12 @@ fn get_opt_or_path<'a>(
 ) -> String {
     if matches.opt_present(key) {
         matches.opt_str(key).unwrap()
+    } else if let Some(mut path_buf) = dirs::home_dir() {
+        path_buf.push(dir);
+        path_buf.push(file_name);
+        let path_str: OsString = path_buf.into_os_string();
+        path_str.to_str().unwrap().to_string()
     } else {
-        if let Some(mut path_buf) = dirs::home_dir() {
-            path_buf.push(dir);
-            path_buf.push(file_name);
-            let path_str: OsString = path_buf.into_os_string();
-            path_str.to_str().unwrap().to_string()
-        } else {
-            file_name.to_string()
-        }
+        file_name.to_string()
     }
 }

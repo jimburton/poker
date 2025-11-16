@@ -208,9 +208,9 @@ impl RemoteActor {
 // I have created a simplified, conceptual impl for demonstration purposes.
 impl Actor for RemoteActor {
     /// Accept the name and bank roll at the beginning of the game.
-    fn set_name_and_bank_roll(&self, name: &String, bank_roll: usize) {
+    fn set_name_and_bank_roll(&self, name: &str, bank_roll: usize) {
         let msg = Msg::Player {
-            name: name.clone(),
+            name: name.to_string(),
             bank_roll,
         };
         self.update(&msg);

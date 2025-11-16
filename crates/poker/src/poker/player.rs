@@ -104,7 +104,7 @@ impl Display for Winner {
 /// and responds to messages.
 pub trait Actor: Debug {
     /// Accept the name and bank roll at the beginning of the game.
-    fn set_name_and_bank_roll(&self, name: &String, bank_roll: usize) -> ();
+    fn set_name_and_bank_roll(&self, name: &str, bank_roll: usize) -> ();
 
     /// Accept the hole cards at the beginning of a round.
     fn hole_cards(&self, hole_cards: (Card, Card)) -> ();
@@ -150,8 +150,8 @@ impl Player {
     /// Set name and bank roll at the beginning of a game. Needed because
     /// the name might need to be changed to become unique, and so that
     /// this info can be passed to remote clients.
-    pub fn set_name_and_bank_roll(&mut self, name: &String, bank_roll: usize) {
-        self.name = name.clone();
+    pub fn set_name_and_bank_roll(&mut self, name: &str, bank_roll: usize) {
+        self.name = name.to_owned();
         self.bank_roll = bank_roll;
         self.actor.set_name_and_bank_roll(name, bank_roll);
     }

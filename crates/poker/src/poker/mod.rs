@@ -64,7 +64,6 @@ pub fn rotate_vector<T: Clone>(v: &[T], i: usize) -> Vec<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::poker::game::Game;
 
     #[test]
     fn test_rotate_vector() {

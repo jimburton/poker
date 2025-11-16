@@ -12,7 +12,7 @@ pub struct CLIPlayer {}
 
 impl Actor for CLIPlayer {
     /// Stub to accept the name and bank roll.
-    fn set_name_and_bank_roll(&self, _name: &String, _bank_roll: usize) {}
+    fn set_name_and_bank_roll(&self, _name: &str, _bank_roll: usize) {}
 
     /// Accept the hole cards.
     fn hole_cards(&self, _hole_cards: (Card, Card)) {}

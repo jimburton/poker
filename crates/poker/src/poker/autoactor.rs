@@ -34,7 +34,7 @@ impl Default for AutoActor {
 /// Implementation of the Actor trait for AutoActor.
 impl Actor for AutoActor {
     /// Stub to accept the name and bank roll at the beginning of the game.
-    fn set_name_and_bank_roll(&self, _name: &String, _bank_roll: usize) {}
+    fn set_name_and_bank_roll(&self, _name: &str, _bank_roll: usize) {}
 
     /// Stun to accept the hole cards.
     fn hole_cards(&self, _hole_cards: (Card, Card)) {}
@@ -46,10 +46,6 @@ impl Actor for AutoActor {
         hole_cards: (Card, Card),
         bank_roll: usize,
     ) -> Option<Bet> {
-        //let mut cards = args.community_cards.clone();
-        //let (h1, h2) = hole_cards;
-        //cards.push(h1);
-        //cards.push(h2);
         let strategy = self.betting_strategy;
         Some(strategy(args, hole_cards, bank_roll))
     }

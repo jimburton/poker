@@ -56,7 +56,7 @@ Within each round there are several stages. These messages are sent in
 each of them:
 
 + A `StageDecl` message declaring the current stage (one of `PreFlop`,
-  `Flop`, ``Turn`, `River` and `ShowDown`) and the current set of
+  `Flop`, `Turn`, `River` and `ShowDown`) and the current set of
   community cards. E.g. `{"StageDecl":{"stage":"PreFlop","community_cards":[]}}`.
 + Several `BetPlaced` messages indicating that a player placed a
   bet. E.g. `{"BetPlaced":{"player":"Cali","bet":"Call"}}`.
@@ -66,17 +66,16 @@ each of them:
   ```
   {"PlaceBet":
      {"args":
-        {"call":0, # the current requirement to continue without folding
-	     "min":100, # the minimum bet
-	     "stage":"PreFlop",
-	     "cycle":0, # the number of times each player has been asked
+        {"call": number, # the current requirement to continue without folding
+	     "min": number, # the minimum bet
+	     "stage": Stage,
+	     "cycle": number, # the number of times each player has been asked
      to bet in this round
-	     "community_cards":[]
+	     "community_cards": Card[] # 0 to 5 cards
      },
-	  "hole_cards":[{"rank":"Rank6","suit":"Clubs"},
-	                {"rank":"Rank4","suit":"Diamonds"}],
-	  "bank_roll":9900,
-	  "best_hand":{"HighCard":"Rank6"}
+	  "hole_cards": Card[], # 2 cards
+	  "bank_roll": number,
+	  "best_hand": Hand
     }
   }
   ```
@@ -118,10 +117,13 @@ each of them:
 
   ```
   
-  When there is only one player left, a `GameWinner` message is ent,
+  When there is only one player left, a `GameWinner` message is sent,
   having the same format as `RoundWinner` and the server closes the
   connection.
   
+`wscat` is a good way to interact with the server and see what kind of
+messages are being sent.
+
 ```
 $ npm install wscat
 $ wscat -c ws://localhost:3000

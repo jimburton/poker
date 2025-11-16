@@ -1,3 +1,6 @@
+/**
+Component displaying the community cards.
+**/
 export default function CommunityCardView ( { communityCards = communityCards } ) {
 
   return (

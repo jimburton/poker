@@ -1,3 +1,6 @@
+/**
+Component showing an opponent for display at the top of the screen.
+**/
 export default function TopPlayerView ( { name, bankRoll, isDealer } ) {
 
   return (

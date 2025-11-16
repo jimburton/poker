@@ -1,3 +1,7 @@
+/**
+Component that shows the player's hole cards and buttons for placing a bet..
+**/
+
 export default function PlayerView ( { placeBet, name, bankRoll, holeCards, call,
                                        possibleBets, isDealer } ) {
   const canCheck = possibleBets.indexOf('Check') !== -1;

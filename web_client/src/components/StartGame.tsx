@@ -1,3 +1,6 @@
+/**
+The component that allows a user to start a game.
+**/
 export default function StartGame( { submit }) {
   return (
 

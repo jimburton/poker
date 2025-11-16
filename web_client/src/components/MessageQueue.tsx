@@ -1,3 +1,6 @@
+/**
+Component for displaying messages with feedback and status updates.
+**/
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 

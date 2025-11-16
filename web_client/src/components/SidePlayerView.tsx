@@ -1,3 +1,6 @@
+/**
+Component showing an opponent for display on the side of the screen.
+**/
 export default function SidePlayerView ( { name, bankRoll, isDealer } ) {
 
   return (

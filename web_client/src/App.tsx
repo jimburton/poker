@@ -35,7 +35,7 @@ function App() {
       const msg = {
         id: id,
         text: text,
-        duration: 5000,
+        duration: 30000,
        };
       console.log('Enqueueing message:');
       console.log(msg);
@@ -95,6 +95,7 @@ function App() {
 	  
         case 'PlaceBet':
 	  console.log(`Bet request. Stage: ${message.args.stage}`);
+	  console.log(message);
 	  parseHoleCards(message.hole_cards);
 	  parseCommunityCards(message.args.community_cards);
 	  setBankRoll(message.bank_roll);
@@ -185,10 +186,11 @@ function App() {
       setCommunityCards, setDealer]);
 
   const formatBet = (bet) => {
-    let payload = bet['PlayerBet'];
-    if (payload === 'Fold' || payload === 'Check') {
-      return payload;
+    
+    if (bet === 'Fold' || bet === 'Check' || bet === 'Call') {
+      return bet;
     } else {
+      let payload = bet['PlayerBet'];
       let type = Object.keys(payload)[0];
       let amount = payload[type];
       return `${type} (${amount})`;
@@ -307,13 +309,12 @@ function App() {
   };
 
   return (
-    <>
+  
       <div className="container h-100">
 
       {renderContent()}
       
       </div>
-    </>
   );
 }
 export default App

@@ -31,8 +31,8 @@ export default function MessageQueue ( { messages } ) {
     // For each message, schedule removal
     const timers = queue.map((msg) => {
       return setTimeout(() => {
-        //setQueue((prev) => prev.filter((m) => m.id !== msg.id));
-      }, msg.duration || 3000);
+        setQueue((prev) => prev.filter((m) => m.id !== msg.id));
+      }, msg.duration || 30000);
   });
 
 

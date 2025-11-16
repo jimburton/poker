@@ -9,6 +9,7 @@ export default function PlayerView ( { placeBet, name, bankRoll, holeCards, call
   const canAllIn = possibleBets.indexOf('AllIn') !== -1;
   const canCall = possibleBets.indexOf('Call') !== -1;
   const canRaise = possibleBets.indexOf('Raise') !== -1;
+  const inputMin = Math.max(minBet, call);
 
   return (
 
@@ -63,10 +64,10 @@ export default function PlayerView ( { placeBet, name, bankRoll, holeCards, call
                 <input type="number" 
                        id="amountInput" 
                        name="amount"
-                       min={call}
+                       min={inputMin}
                        max={bankRoll}
-                       defaultValue={minBet}
-		       value={minBet}
+                       defaultValue={inputMin}
+		       value={inputMin}
 		       onChange={e => setMinBet(e.target.value)}
                        step="10"
                        className="form-control align-self-center bet-spinner mt-2" />

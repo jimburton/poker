@@ -98,3 +98,20 @@ img.dealerIcon {
     height: 50px;
     width: 100%;
 }
+.message-height {
+    height: 30%;
+}
+.cards-height {
+    height: 60%;
+}
+.pot-height {
+    height: 10%;
+}
+.main-layout-area {
+    height: 90vh; 
+    min-height: 400px;
+    background-color: #f8f9fa;
+}
+.layout-section {
+    border: 1px solid #ced4da;
+}

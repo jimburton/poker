@@ -3,8 +3,8 @@ Poker web app.
 **/
 import { FormEvent, useEffect, useState, useCallback } from "react";
 import type { ItemTuple, Card, IncomingPokerMessage } from './poker_messages';
-import Game from './Game';
-import StartGame from './StartGame';
+import GameView from './components/GameView';
+import StartGame from './components/StartGame';
 
 function App() {
   
@@ -23,9 +23,26 @@ function App() {
   const [call, setCall] = useState<number>(0);
   const [minBet, setMinBet] = useState<number>(0);
   const [pot, setPot] = useState<number>(0);
+  const [messageQueue, setMessageQueue] = useState([]);
 
   // State to track the connection status (Not connected, Connecting, Connected)
   const [connectionStatus, setConnectionStatus] = useState<'Disconnected' | 'Connecting' | 'Connected'>('Disconnected');
+
+  const enqueueMessage = useCallback((text) => {
+    if (text.trim()) {
+      const id = Math.random().toString(36).slice(2);
+      console.log(`id: ${id}`);
+      const msg = {
+        id: id,
+        text: text,
+        duration: 5,
+       };
+      console.log('Enqueueing message:');
+      console.log(msg);
+      setMessageQueue(prevQueue => [...prevQueue, msg]);
+      console.log(`Messages: ${messageQueue}`);
+    }
+  }, [setMessageQueue]);
 
   const parseHoleCards = (cards: Card[]) => {
     const names = cards.map((c) => parseCard(c)); 
@@ -97,6 +114,7 @@ function App() {
             bets.push('Raise');
           }
 	  setPossibleBets(bets);
+	  enqueueMessage("Time to place a bet");
 	  // player needs to send bet back to the server
 	  break;
 
@@ -109,8 +127,10 @@ function App() {
 	  setPlayers(message.players);
 	  let playersStr = message.players.map((p) => p[0] + ' (' + p[1] + ')').join(", ");
 	  console.log(`Players: ${playersStr}`);
+	  enqueueMessage(`Players: ${playersStr}`);
 	  // set up the UI.
 	  setDealer(message.dealer);
+	  enqueueMessage(`Dealer: ${message.dealer}`);
 	  setCurrentView('game');
 	  break;
 
@@ -248,11 +268,11 @@ function App() {
   const renderContent = () => {
     if (currentView === 'game') {
       // If state is 'game', render the Game view.
-      return <Game playerName={playerName} bankRoll={bankRoll}
+      return <GameView playerName={playerName} bankRoll={bankRoll}
                    players={players} dealer={dealer} holeCards={holeCards}
 		   communityCards={communityCards} possibleBets={possibleBets}
 		   bestHand={bestHand} call={call} minBet={minBet} placeBet={placeBet}
-		   pot={pot} />;
+		   pot={pot} messageQueue={messageQueue} />;
     } else {
       // Otherwise (if state is 'default'), render the StartGame view.
       return <StartGame submit={submit} />;

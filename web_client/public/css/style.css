@@ -95,8 +95,9 @@ img.dealerIcon {
 }
 .messages {
     height: 150px;
-    width: 500px;
-    overflow: auto;
+    width: 550px;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 .message-height {
     height: 30%;

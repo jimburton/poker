@@ -22,7 +22,7 @@ export default function MessageQueue ( { messages } ) {
       // Add new messages to internal queue
       setQueue((prev) => {
         const newItems = messages.filter((m) => !prev.find((p) => p.id === m.id));
-        return [...prev, ...newItems];
+        return [...newItems, ...prev];
       });
   }, [messages]);
 
@@ -30,9 +30,9 @@ export default function MessageQueue ( { messages } ) {
   useEffect(() => {
     // For each message, schedule removal
     const timers = queue.map((msg) => {
-    return setTimeout(() => {
-      setQueue((prev) => prev.filter((m) => m.id !== msg.id));
-    }, msg.duration || 3000);
+      return setTimeout(() => {
+        //setQueue((prev) => prev.filter((m) => m.id !== msg.id));
+      }, msg.duration || 3000);
   });
 
 
@@ -42,13 +42,11 @@ export default function MessageQueue ( { messages } ) {
 
   return (
   
-    <div className="d-flex flex-column mx-auto messages">
+    <div className="d-flex flex-column mx-auto messages m-2">
         {queue.map((msg) => (
-	  <>
-          <div key={msg.id} className="row">
+          <div key={msg.id} className="row ps-5">
           {msg.text}
          </div>
-	 </>
         ))}
     </div>
   );

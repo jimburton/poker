@@ -10,7 +10,7 @@ import MessageQueue from './MessageQueue';
 
 export default function GameView ( { playerName, bankRoll, players, dealer, holeCards,
                                 communityCards, possibleBets, bestHand, call, minBet,
-                                placeBet, pot, messageQueue }) {
+                                placeBet, pot, messageQueue, setMinBet }) {
         
   console.log(`GameView Messages: ${messageQueue}`);
   const playerIndex = players.findIndex((p) => p[0] === playerName);
@@ -112,7 +112,9 @@ export default function GameView ( { playerName, bankRoll, players, dealer, hole
                   holeCards={holeCards}
                   call={call}
                   possibleBets={possibleBets}
-                  isDealer={isDealer_player} />
+                  isDealer={isDealer_player}
+		  minBet={minBet}
+		  setMinBet={setMinBet} />
 
       <div className="custom-col-width grid-cell d-flex justify-content-center
           align-items-center">

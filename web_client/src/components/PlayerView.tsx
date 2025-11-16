@@ -3,7 +3,8 @@ Component that shows the player's hole cards and buttons for placing a bet..
 **/
 
 export default function PlayerView ( { placeBet, name, bankRoll, holeCards, call,
-                                       possibleBets, isDealer } ) {
+                                       possibleBets, isDealer, minBet, setMinBet } ) {
+				       
   const canCheck = possibleBets.indexOf('Check') !== -1;
   const canAllIn = possibleBets.indexOf('AllIn') !== -1;
   const canCall = possibleBets.indexOf('Call') !== -1;
@@ -64,7 +65,9 @@ export default function PlayerView ( { placeBet, name, bankRoll, holeCards, call
                        name="amount"
                        min={call}
                        max={bankRoll}
-                       defaultValue={call} 
+                       defaultValue={minBet}
+		       value={minBet}
+		       onChange={e => setMinBet(e.target.value)}
                        step="10"
                        className="form-control align-self-center bet-spinner mt-2" />
               </div>

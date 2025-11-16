@@ -120,20 +120,18 @@ function App() {
 	  break;
 
         case 'BetPlaced':
-	  msgStr = `${message.player} made bet ${message.bet}`;
+	  msgStr = `${message.player} made bet ${formatBet(message.bet)}`;
 	  console.log(msgStr);
 	  enqueueMessage(msgStr);
-	  setPot(message.pot);
+	  setPot(parseInt(message.pot));
 	  break;
 
         case 'PlayersInfo':
 	  setPlayers(message.players);
 	  let playersStr = message.players.map((p) => p[0] + ' (' + p[1] + ')').join(", ");
 	  console.log(`Players: ${playersStr}`);
-	  enqueueMessage(`Players: ${playersStr}`);
 	  // set up the UI.
 	  setDealer(message.dealer);
-	  enqueueMessage(`Dealer: ${message.dealer}`);
 	  setCurrentView('game');
 	  break;
 
@@ -182,8 +180,20 @@ function App() {
     } catch (error) {
       console.log('Received unknown message format: ', error);
     }
-  }, [setConnectionStatus, setPlayers, setBankRoll, setCall, setPlayerName, setPossibleBets,
-      setMinBet, setCurrentView, setBestHand, setHoleCards, setCommunityCards, setDealer]);
+  }, [setConnectionStatus, setPlayers, setBankRoll, setCall, setPlayerName,
+      setPossibleBets, setMinBet, setCurrentView, setBestHand, setHoleCards,
+      setCommunityCards, setDealer]);
+
+  const formatBet = (bet) => {
+    let payload = bet['PlayerBet'];
+    if (payload === 'Fold' || payload === 'Check') {
+      return payload;
+    } else {
+      let type = Object.keys(payload)[0];
+      let amount = payload[type];
+      return `${type} (${amount})`;
+    }
+  };
   
   useEffect(() => {
     console.log('Connecting to server.');
@@ -255,23 +265,29 @@ function App() {
       case 'Call':
         bet = {
 	  PlayerBet: {Call: parseInt(form.amount.value)}
-        } ;
+        };
+	setPot(pot + parseInt(form.amount.value));
 	setBankRoll(bankRoll-form.amount.value);
         break;
+	
       case 'Raise':
         bet = {
 	  PlayerBet: {Raise: parseInt(form.amount.value)}
         };
-        break;
 	setBankRoll(bankRoll-form.amount.value);
+	setPot(pot + parseInt(form.amount.value));
+        break;
+	
       case 'AllIn':
         bet = {
 	  PlayerBet: {AllIn: parseInt(form.amount.value)}
         };
 	setBankRoll(bankRoll-form.amount.value);
+	setPot(pot + parseInt(form.amount.value));
         break;
     }
     console.log(bet);
+    enqueueMessage(`You made bet ${formatBet(bet)}`);
     socket.send(JSON.stringify(bet));
   };
 
@@ -283,7 +299,7 @@ function App() {
                    players={players} dealer={dealer} holeCards={holeCards}
 		   communityCards={communityCards} possibleBets={possibleBets}
 		   bestHand={bestHand} call={call} minBet={minBet} placeBet={placeBet}
-		   pot={pot} messageQueue={messageQueue} />;
+		   pot={pot} messageQueue={messageQueue} setMinBet={setMinBet} />;
     } else {
       // Otherwise (if state is 'default'), render the StartGame view.
       return <StartGame submit={submit} />;

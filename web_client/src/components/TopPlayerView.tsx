@@ -1,7 +1,7 @@
 export default function TopPlayerView ( { name, bankRoll, isDealer } ) {
 
   return (
-    <div className="row">
+    <div className="row mx-auto">
       {isDealer &&
         <div className="col">
           <img src='/images/dealer.png' className='dealerIcon' alt='dealer button' />

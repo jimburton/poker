@@ -35,7 +35,7 @@ function App() {
       const msg = {
         id: id,
         text: text,
-        duration: 5,
+        duration: 5000,
        };
       console.log('Enqueueing message:');
       console.log(msg);
@@ -79,7 +79,8 @@ function App() {
 	
       console.log('Message parsed as:');
       console.log(message);
-
+      let msgStr = '';
+      
       // Type narrowing using the discriminator.
       switch (message.type) {
 
@@ -119,7 +120,9 @@ function App() {
 	  break;
 
         case 'BetPlaced':
-	  console.log(`Player ${message.player} made bet ${message.bet}`);
+	  msgStr = `${message.player} made bet ${message.bet}`;
+	  console.log(msgStr);
+	  enqueueMessage(msgStr);
 	  setPot(message.pot);
 	  break;
 
@@ -135,24 +138,32 @@ function App() {
 	  break;
 
         case 'StageDecl':
-	  console.log(`Stage: ${message.stage}`);
+	  msgStr = `Stage: ${message.stage}`;
+	  console.log(msgStr);
 	  parseCommunityCards(message.community_cards);
+	  enqueueMessage(msgStr);
 	  break;
 
         case 'RoundWinner':
 	  const winnerType = Object.keys(message.winner)[0];
 	  const winner = message.winner[winnerType];
 	  if (winnerType === 'SoleWinner') {
-	    console.log(`${winner.name} won the round with ${JSON.stringify(winner.hand)}`);
+	    msgStr = `${winner.name} won the round with ${JSON.stringify(winner.hand)}`;
+	    console.log(msgStr);
+	    enqueueMessage(msgStr);
           } else {
-	    let winners = winner.map((w) => w[0]).join(', '); 
-	    console.log(`It was a draw between ${winners}`);
+	    let winners = winner.map((w) => w[0]).join(', ');
+	    msgStr = `The round was a draw between ${winners}`;
+	    console.log(msgStr);
+	    enqueueMessage(msgStr);
           }
 	  break;
 
         case 'GameWinner':
 	  if (message.winner.type === 'SoleWinner') {
-	    console.log(`${message.winner.name} won the game.`);
+	    msgStr = `${message.winner.name} won the game.`;
+	    console.log(msgStr);
+	    enqueueMessage(msgStr);
           } else {
 	    console.error(`Was expecting a single winner of the game, got ${message}`);
           }

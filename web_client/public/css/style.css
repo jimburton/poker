@@ -93,10 +93,10 @@ img.dealerIcon {
 .bet-spinner {
     width: 75px;
 }
-
-#messages {
-    height: 50px;
-    width: 100%;
+.messages {
+    height: 150px;
+    width: 500px;
+    overflow: auto;
 }
 .message-height {
     height: 30%;
@@ -112,6 +112,4 @@ img.dealerIcon {
     min-height: 400px;
     background-color: #f8f9fa;
 }
-.layout-section {
-    border: 1px solid #ced4da;
-}
+

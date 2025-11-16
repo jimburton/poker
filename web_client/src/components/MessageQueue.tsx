@@ -39,21 +39,14 @@ export default function MessageQueue ( { messages } ) {
 
   return (
   
-    <div className="fixed top-4 right-4 space-y-2 w-64 z-50">
-      <AnimatePresence>
+    <div className="d-flex flex-column mx-auto messages">
         {queue.map((msg) => (
-          <motion.div
-            key={msg.id}
-            initial={{ opacity: 1, y: 0 }}
-            animate={{ opacity: 0, y: -10 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: msg.duration }}
-            className="rounded-2xl shadow-lg p-4 bg-white text-gray-800 border
-	               border-gray-200">
+	  <>
+          <div key={msg.id} className="row">
           {msg.text}
-         </motion.div>
+         </div>
+	 </>
         ))}
-      </AnimatePresence>
     </div>
   );
 }

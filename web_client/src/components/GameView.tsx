@@ -27,8 +27,8 @@ export default function GameView ( { playerName, bankRoll, players, dealer, hole
   
   <div className="container-fluid h-100 p-0">
         
-        <div id="row1" className="bg-primary bg-opacity-75">
-            <div className="row g-0 h-100">
+        <div id="row1" className="bg-primary bg-opacity-75 mx-auto">
+            <div className="row g-0 h-100 mx-auto">
                 <div className="custom-col-width grid-cell d-flex
 		                justify-content-center align-items-center">
 		</div>
@@ -37,7 +37,7 @@ export default function GameView ( { playerName, bankRoll, players, dealer, hole
 		                justify-content-center align-items-center mx-auto"
 		     id="player2-col">
 
-                 <div className="container-fluid">
+                 <div className="container-fluid mx-auto">
 
                     <TopPlayerView name={playerName_top}
 		                   bankRoll={playerBankRoll_top}

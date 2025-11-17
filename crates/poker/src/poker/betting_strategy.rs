@@ -71,7 +71,7 @@ pub fn six_max(args: BetArgs, hole_cards: (Card, Card), bank_roll: usize) -> Bet
     cards.push(hole_cards.0);
     cards.push(hole_cards.1);
     cards.sort();
-    let hand = compare::best_hand(&cards);
+    let hand = compare::best_hand(&cards).hand;
     let bet = std::cmp::min(bank_roll, args.call + args.min);
     let folding = bank_roll == 0;
     let all_in = bank_roll < args.call;

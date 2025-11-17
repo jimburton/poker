@@ -19,7 +19,7 @@ function App() {
   const [holeCards, setHoleCards] = useState<string[]>([]);
   const [communityCards, setCommunityCards] = useState<string[]>([]);
   const [possibleBets, setPossibleBets] = useState<string[]>(['Fold']);
-  const [bestHand, setBestHand] = useState<Hand | null>(null);
+  const [bestHandCards, setBestHandCards] = useState<string[]>([]);
   const [call, setCall] = useState<number>(0);
   const [minBet, setMinBet] = useState<number>(0);
   const [pot, setPot] = useState<number>(0);
@@ -52,6 +52,11 @@ function App() {
   const parseCommunityCards = (cards: Card[]) => {
     const names = cards.map((c) => parseCard(c)); 
     setCommunityCards(names);
+  };
+
+  const parseBestHandCards = (cards: Card[]) => {
+    const names = cards.map((c) => parseCard(c)); 
+    setBestHandCards(names);
   };
 
   const parseCard = (card: Card) => {
@@ -98,8 +103,10 @@ function App() {
 	  console.log(message);
 	  parseHoleCards(message.hole_cards);
 	  parseCommunityCards(message.args.community_cards);
+	  parseBestHandCards(message.best_hand);
+	  console.log("Best hand cards:");
+	  console.log(message.best_hand.cards);
 	  setBankRoll(message.bank_roll);
-	  setBestHand(message.best_hand);
 	  setCall(message.args.call);
 	  setMinBet(message.args.min);
 	  let bets: string[] = ['Fold'];

@@ -602,12 +602,12 @@ impl Game {
                     let comparison_result = compare::compare_hands(
                         PlayerHand {
                             name: challenger_name.clone(),
-                            hand: challenger_hand,
+                            hand: challenger_hand.clone(),
                             cards: challenger_cards.clone(),
                         },
                         PlayerHand {
                             name: w_name_benchmark.clone(),
-                            hand: w_hand_benchmark,
+                            hand: w_hand_benchmark.clone(),
                             cards: w_cards_benchmark.clone(),
                         },
                     );
@@ -615,7 +615,7 @@ impl Game {
                     // Put the benchmark hand back for future comparisons or draw outcome
                     draw_winners.push(PlayerHand {
                         name: w_name_benchmark,
-                        hand: w_hand_benchmark,
+                        hand: w_hand_benchmark.clone(),
                         cards: w_cards_benchmark,
                     });
 
@@ -695,8 +695,8 @@ impl Game {
                     },
                     _all_in,
                 )| PlayerHand {
-                    name: name.clone(),
-                    hand: *best_hand,
+                    name: name.to_owned(),
+                    hand: best_hand.to_owned(),
                     cards: cards.clone(),
                 },
             )
@@ -728,9 +728,9 @@ impl Game {
                                     .iter()
                                     .filter(|(ph, _all_in)| sp.players.contains(&ph.name))
                                     .map(|(ph, _all_in)| PlayerHand {
-                                        name: ph.name.clone(),
-                                        hand: ph.hand,
-                                        cards: ph.cards.clone(),
+                                        name: ph.name.to_owned(),
+                                        hand: ph.hand.to_owned(),
+                                        cards: ph.cards.to_owned(),
                                     })
                                     .collect();
                                 if candidates.is_empty() {
@@ -775,9 +775,9 @@ impl Game {
                             .iter()
                             .filter(|(ph, _all_in)| sp.players.contains(&ph.name))
                             .map(|(ph, _all_in)| PlayerHand {
-                                name: ph.name.clone(),
-                                hand: ph.hand,
-                                cards: ph.cards.clone(),
+                                name: ph.name.to_owned(),
+                                hand: ph.hand.to_owned(),
+                                cards: ph.cards.to_owned(),
                             })
                             .collect();
                         if candidates.is_empty() {
@@ -874,7 +874,7 @@ mod tests {
     use crate::poker::{
         autoactor::AutoActor,
         betting_strategy::BetArgs,
-        card::{Card, Hand, Rank, Suit},
+        card::{BestHand, Card, Hand, Rank, Suit},
     };
 
     #[test]
@@ -1218,13 +1218,14 @@ mod tests {
         {
             assert!(n == "player1", "Expected player1, was {}", n);
             assert!(
-                h == Hand::Flush(
-                    Rank::Rank2,
-                    Rank::Rank4,
-                    Rank::Rank10,
-                    Rank::Jack,
-                    Rank::King
-                ),
+                h.hand
+                    == Hand::Flush(
+                        Rank::Rank2,
+                        Rank::Rank4,
+                        Rank::Rank10,
+                        Rank::Jack,
+                        Rank::King
+                    ),
                 "Expected Flush(K), was {:?}",
                 h
             );
@@ -1303,7 +1304,7 @@ mod tests {
                      cards: _cs,
                  }| {
                     assert!(
-                        h == &Hand::OnePair(Rank::Rank10),
+                        h.hand == Hand::OnePair(Rank::Rank10),
                         "Expected player to have OnePair(10), was {:?}.",
                         h
                     );
@@ -1324,7 +1325,10 @@ mod tests {
         game.pot = 120;
         game.winner = Some(Winner::SoleWinner(PlayerHand {
             name: "player1".to_string(),
-            hand: Hand::HighCard(Rank::Ace),
+            hand: BestHand {
+                hand: Hand::HighCard(Rank::Ace),
+                cards: Vec::new(),
+            },
             cards: Vec::new(),
         }));
 
@@ -1364,12 +1368,18 @@ mod tests {
         game.winner = Some(Winner::Draw(vec![
             PlayerHand {
                 name: "player1".to_string(),
-                hand: Hand::HighCard(Rank::Ace),
+                hand: BestHand {
+                    hand: Hand::HighCard(Rank::Ace),
+                    cards: Vec::new(),
+                },
                 cards: Vec::new(),
             },
             PlayerHand {
                 name: "player2".to_string(),
-                hand: Hand::HighCard(Rank::Ace),
+                hand: BestHand {
+                    hand: Hand::HighCard(Rank::Ace),
+                    cards: Vec::new(),
+                },
                 cards: Vec::new(),
             },
         ]));
@@ -1430,17 +1440,26 @@ mod tests {
         game.winner = Some(Winner::Draw(vec![
             PlayerHand {
                 name: "player1".to_string(),
-                hand: Hand::HighCard(Rank::Ace),
+                hand: BestHand {
+                    hand: Hand::HighCard(Rank::Ace),
+                    cards: Vec::new(),
+                },
                 cards: Vec::new(),
             },
             PlayerHand {
                 name: "player2".to_string(),
-                hand: Hand::HighCard(Rank::Ace),
+                hand: BestHand {
+                    hand: Hand::HighCard(Rank::Ace),
+                    cards: Vec::new(),
+                },
                 cards: Vec::new(),
             },
             PlayerHand {
                 name: "player3".to_string(),
-                hand: Hand::HighCard(Rank::Ace),
+                hand: BestHand {
+                    hand: Hand::HighCard(Rank::Ace),
+                    cards: Vec::new(),
+                },
                 cards: Vec::new(),
             },
         ]));

@@ -2,37 +2,68 @@
 use std::cmp::Ordering;
 
 use crate::poker::{
-    card::{Card, Hand},
+    card::{BestHand, Card, Hand},
     player::{PlayerHand, Winner},
     sequence,
 };
 
 /// Get the best hand from a collection of cards.
-pub fn best_hand(cards: &[Card]) -> Hand {
+pub fn best_hand(cards: &[Card]) -> BestHand {
     let mut cs = cards.to_owned();
     cs.sort_by(|a, b| b.rank.cmp(&a.rank));
-    let ls = sequence::longest_sequence(&cs);
-    let ranks = sequence::group_by_rank(cards);
-    let suits = sequence::group_by_suit(cards);
-    if sequence::same_suit(cards) && ls.len() == 5 {
-        Hand::StraightFlush(cards[cards.len() - 1].rank)
+    let longest_seq = sequence::longest_sequence(&cs);
+    let ranks = sequence::group_by_rank(&cs);
+    let suits = sequence::group_by_suit(&cs);
+    if sequence::same_suit(cards) && longest_seq.len() == 5 {
+        BestHand {
+            hand: Hand::StraightFlush(cards[cards.len() - 1].rank),
+            cards: cs,
+        }
     } else if !ranks.is_empty() && ranks[0].len() == 4 {
-        Hand::FourOfAKind(ranks[0][0].rank)
+        BestHand {
+            hand: Hand::FourOfAKind(ranks[0][0].rank),
+            cards: ranks[0].to_owned(),
+        }
     } else if ranks.len() > 1 && ranks[0].len() == 3 && ranks[1].len() == 2 {
-        Hand::FullHouse(ranks[0][0].rank, ranks[1][0].rank)
+        let mut cards = ranks[0].clone();
+        cards.append(&mut ranks[1].clone());
+        BestHand {
+            hand: Hand::FullHouse(ranks[0][0].rank, ranks[1][0].rank),
+            cards,
+        }
     } else if !suits.is_empty() && suits[0].len() >= 5 {
         let ls = suits.first().unwrap();
-        Hand::Flush(ls[4].rank, ls[3].rank, ls[2].rank, ls[1].rank, ls[0].rank)
-    } else if ls.len() >= 5 {
-        Hand::Straight(cards.iter().map(|a| a.rank).max().unwrap())
+        BestHand {
+            hand: Hand::Flush(ls[4].rank, ls[3].rank, ls[2].rank, ls[1].rank, ls[0].rank),
+            cards: ls.to_owned(),
+        }
+    } else if longest_seq.len() >= 5 {
+        BestHand {
+            hand: Hand::Straight(cards.iter().map(|a| a.rank).max().unwrap()),
+            cards: longest_seq,
+        }
     } else if !ranks.is_empty() && ranks[0].len() == 3 {
-        Hand::ThreeOfAKind(ranks[0][0].rank)
+        BestHand {
+            hand: Hand::ThreeOfAKind(ranks[0][0].rank),
+            cards: ranks[0].to_owned(),
+        }
     } else if ranks.len() > 1 && ranks[0].len() == 2 && ranks[1].len() == 2 {
-        Hand::TwoPair(ranks[0][0].rank, ranks[1][0].rank)
+        let mut cards = ranks[0].clone();
+        cards.append(&mut ranks[1].clone());
+        BestHand {
+            hand: Hand::TwoPair(ranks[0][0].rank, ranks[1][0].rank),
+            cards,
+        }
     } else if !ranks.is_empty() && ranks[0].len() == 2 {
-        Hand::OnePair(ranks[0][0].rank)
+        BestHand {
+            hand: Hand::OnePair(ranks[0][0].rank),
+            cards: ranks[0].to_owned(),
+        }
     } else if let Some(c) = cards.iter().max() {
-        Hand::HighCard(c.rank)
+        BestHand {
+            hand: Hand::HighCard(c.rank),
+            cards: vec![c.to_owned()],
+        }
     } else {
         panic!("Called best hand with empty set of cards.");
     }
@@ -44,20 +75,20 @@ pub fn compare_hands(hand_a: PlayerHand, hand_b: PlayerHand) -> Winner {
     let (name_a, h_a, c_a) = (hand_a.name, hand_a.hand, hand_a.cards);
     let (name_b, h_b, c_b) = (hand_b.name, hand_b.hand, hand_b.cards);
 
-    if h_a > h_b {
+    if h_a.hand > h_b.hand {
         Winner::SoleWinner(PlayerHand {
             name: name_a,
             hand: h_a,
             cards: c_a,
         })
-    } else if h_b > h_a {
+    } else if h_b.hand > h_a.hand {
         Winner::SoleWinner(PlayerHand {
             name: name_b,
             hand: h_b,
             cards: c_b,
         })
     } else {
-        match (h_a, h_b) {
+        match (h_a.hand, h_b.hand) {
             // If two straight flushes have the same highest card, it's a draw
             (Hand::StraightFlush(_r1), Hand::StraightFlush(_r2)) => Winner::Draw(vec![
                 PlayerHand {
@@ -125,7 +156,7 @@ pub fn compare_hands(hand_a: PlayerHand, hand_b: PlayerHand) -> Winner {
                     ]),
                 },
             },
-            // if two players each one of the other types of hand then their cards then
+            // if the players each have one of the other types of hand then
             // their cards are compared pairwise. If all five cards are the same, it's a draw.
             (Hand::Flush(..), Hand::Flush(..))
             | (Hand::Straight(..), Hand::Straight(..))
@@ -194,7 +225,7 @@ fn highest_cards(hand_a: PlayerHand, hand_b: PlayerHand) -> Winner {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::poker::card::{Hand, Rank};
+    use crate::poker::card::{Hand, Rank, Suit};
     use crate::poker::test_data::*;
 
     #[test]
@@ -207,12 +238,18 @@ mod tests {
         let w = highest_cards(
             PlayerHand {
                 name: p1.to_string(),
-                hand: h1,
+                hand: BestHand {
+                    hand: h1,
+                    cards: c1.clone(),
+                },
                 cards: c1,
             },
             PlayerHand {
                 name: p2.to_string(),
-                hand: h1,
+                hand: BestHand {
+                    hand: h1,
+                    cards: c2.clone(),
+                },
                 cards: c2,
             },
         );
@@ -235,12 +272,18 @@ mod tests {
         let w = highest_cards(
             PlayerHand {
                 name: p1.to_string(),
-                hand: h1,
+                hand: BestHand {
+                    hand: h1,
+                    cards: c1.clone(),
+                },
                 cards: c1,
             },
             PlayerHand {
                 name: p3.to_string(),
-                hand: h3,
+                hand: BestHand {
+                    hand: h3,
+                    cards: c3.clone(),
+                },
                 cards: c3,
             },
         );
@@ -265,12 +308,18 @@ mod tests {
         let w = compare_hands(
             PlayerHand {
                 name: p1.to_string(),
-                hand: h1,
+                hand: BestHand {
+                    hand: h1,
+                    cards: c1.clone(),
+                },
                 cards: c1,
             },
             PlayerHand {
                 name: p2.to_string(),
-                hand: h2,
+                hand: BestHand {
+                    hand: h2,
+                    cards: c2.clone(),
+                },
                 cards: c2,
             },
         );
@@ -292,7 +341,18 @@ mod tests {
     fn test_best_hand_high_card() {
         let h1 = Vec::from(HIGH_CARD_ACE);
         let bh_high_card = best_hand(&h1);
-        if let Hand::HighCard(r) = bh_high_card {
+        assert!(
+            bh_high_card.cards.len() == 1,
+            "Expected one card in best_hand.cards, was {:?}",
+            bh_high_card.cards
+        );
+        let high_card = bh_high_card.cards[0];
+        assert!(
+            high_card.rank == Rank::Ace && high_card.suit == Suit::Spades,
+            "Expected Ace of Spades as best_hand.cards, was {:?}",
+            high_card
+        );
+        if let Hand::HighCard(r) = bh_high_card.hand {
             assert!(
                 r == Rank::Ace,
                 "best_hand(HIGH_CARD): expected Ace, result was {:?}",
@@ -310,7 +370,19 @@ mod tests {
     fn test_best_hand_one_pair() {
         let h1 = Vec::from(ONE_PAIR_HC8);
         let bh_one_pair = best_hand(&h1);
-        if let Hand::OnePair(r) = bh_one_pair {
+        assert!(
+            bh_one_pair.cards.len() == 2,
+            "Expected two cards in best_hand.cards, was {:?}",
+            bh_one_pair.cards
+        );
+        let card1 = bh_one_pair.cards[0];
+        let card2 = bh_one_pair.cards[1];
+        assert!(
+            card1.rank == Rank::Rank2 && card2.rank == Rank::Rank2,
+            "Expected a pair of twos in best_hand.cards, was {:?}",
+            bh_one_pair.cards
+        );
+        if let Hand::OnePair(r) = bh_one_pair.hand {
             assert!(
                 r == Rank::Rank2,
                 "best_hand(ONE_PAIR): expected 2, result was {:?}",
@@ -328,7 +400,24 @@ mod tests {
     fn test_best_hand_two_pair() {
         let h1 = Vec::from(TWO_PAIR);
         let bh_two_pair = best_hand(&h1);
-        if let Hand::TwoPair(r1, r2) = bh_two_pair {
+        assert!(
+            bh_two_pair.cards.len() == 4,
+            "Expected four cards in best_hand.cards, was {:?}",
+            bh_two_pair.cards
+        );
+        let card1 = bh_two_pair.cards[0];
+        let card2 = bh_two_pair.cards[1];
+        let card3 = bh_two_pair.cards[2];
+        let card4 = bh_two_pair.cards[3];
+        assert!(
+            card1.rank == Rank::Rank4
+                && card2.rank == Rank::Rank4
+                && card3.rank == Rank::Rank2
+                && card4.rank == Rank::Rank2,
+            "Expected pairs of twos and fours in best_hand.cards, was {:?}",
+            bh_two_pair.cards
+        );
+        if let Hand::TwoPair(r1, r2) = bh_two_pair.hand {
             let mut ranks: [Rank; 2] = [r1, r2];
             ranks.sort();
             assert!(
@@ -349,7 +438,20 @@ mod tests {
     fn test_best_hand_three_of_a_kind() {
         let h1 = Vec::from(THREE_OF_A_KIND);
         let bh_tok = best_hand(&h1);
-        if let Hand::ThreeOfAKind(r) = bh_tok {
+        assert!(
+            bh_tok.cards.len() == 3,
+            "Expected three cards in best_hand.cards, was {:?}",
+            bh_tok.cards
+        );
+        let card1 = bh_tok.cards[0];
+        let card2 = bh_tok.cards[1];
+        let card3 = bh_tok.cards[2];
+        assert!(
+            card1.rank == Rank::Rank3 && card2.rank == Rank::Rank3 && card3.rank == Rank::Rank3,
+            "Expected three threes in best_hand.cards, was {:?}",
+            bh_tok.cards
+        );
+        if let Hand::ThreeOfAKind(r) = bh_tok.hand {
             assert!(
                 r == Rank::Rank3,
                 "best_hand(THREE_OF_A_KIND): expected 3, result was {:?}",
@@ -367,7 +469,26 @@ mod tests {
     fn test_best_hand_straight() {
         let h1 = Vec::from(STRAIGHT);
         let bh_s = best_hand(&h1);
-        if let Hand::Straight(r) = bh_s {
+        assert!(
+            bh_s.cards.len() == 5,
+            "Expected fivecards in best_hand.cards, was {:?}",
+            bh_s.cards
+        );
+        let card1 = bh_s.cards[0];
+        let card2 = bh_s.cards[1];
+        let card3 = bh_s.cards[2];
+        let card4 = bh_s.cards[3];
+        let card5 = bh_s.cards[4];
+        assert!(
+            card1.rank == Rank::Rank2
+                && card2.rank == Rank::Rank3
+                && card3.rank == Rank::Rank4
+                && card4.rank == Rank::Rank5
+                && card5.rank == Rank::Rank6,
+            "Expected Straight from Rank2 to Rank6 in best_hand.cards, was {:?}",
+            bh_s.cards
+        );
+        if let Hand::Straight(r) = bh_s.hand {
             assert!(
                 r == Rank::Rank6,
                 "best_hand(STRAIGHT): expected 6, result was {:?}",
@@ -385,7 +506,26 @@ mod tests {
     fn test_best_hand_straight_seven_cards() {
         let h1 = Vec::from(STRAIGHT_7);
         let bh_s = best_hand(&h1);
-        if let Hand::Straight(r) = bh_s {
+        assert!(
+            bh_s.cards.len() == 5,
+            "Expected fivecards in best_hand.cards, was {:?}",
+            bh_s.cards
+        );
+        let card1 = bh_s.cards[0];
+        let card2 = bh_s.cards[1];
+        let card3 = bh_s.cards[2];
+        let card4 = bh_s.cards[3];
+        let card5 = bh_s.cards[4];
+        assert!(
+            card1.rank == Rank::Rank4
+                && card2.rank == Rank::Rank5
+                && card3.rank == Rank::Rank6
+                && card4.rank == Rank::Rank7
+                && card5.rank == Rank::Rank8,
+            "Expected Straight from Rank4 to Rank8 in best_hand.cards, was {:?}",
+            bh_s.cards
+        );
+        if let Hand::Straight(r) = bh_s.hand {
             assert!(
                 r == Rank::King,
                 "best_hand(STRAIGHT): expected 6, result was {:?}",
@@ -403,7 +543,12 @@ mod tests {
     fn test_best_hand_flush() {
         let h1 = Vec::from(FLUSH);
         let bh_f = best_hand(&h1);
-        if let Hand::Flush(r1, r2, r3, r4, r5) = bh_f {
+        assert!(
+            bh_f.cards.len() == 5,
+            "Expected five cards in best_hand.cards, was {:?}",
+            bh_f.cards
+        );
+        if let Hand::Flush(r1, r2, r3, r4, r5) = bh_f.hand {
             assert!(
                 r1 == Rank::Rank2
                     && r2 == Rank::Rank3
@@ -429,7 +574,12 @@ mod tests {
     fn test_best_full_house() {
         let h1 = Vec::from(FULL_HOUSE);
         let bh_f = best_hand(&h1);
-        if let Hand::FullHouse(r1, r2) = bh_f {
+        assert!(
+            bh_f.cards.len() == 5,
+            "Expected five cards in best_hand.cards, was {:?}",
+            bh_f.cards
+        );
+        if let Hand::FullHouse(r1, r2) = bh_f.hand {
             assert!(
                 r1 == Rank::Rank2 && r2 == Rank::Jack,
                 "best_hand(FULL_HOUSE): expected 2,J, result was {:?},{:?}",
@@ -448,7 +598,12 @@ mod tests {
     fn test_best_four_of_a_kind() {
         let h1 = Vec::from(FOUR_OF_A_KIND);
         let bh_f = best_hand(&h1);
-        if let Hand::FourOfAKind(r) = bh_f {
+        assert!(
+            bh_f.cards.len() == 4,
+            "Expected four cards in best_hand.cards, was {:?}",
+            bh_f.cards
+        );
+        if let Hand::FourOfAKind(r) = bh_f.hand {
             assert!(
                 r == Rank::Rank5,
                 "best_hand(FOUR_OF_A_KIND): expected 5, result was {:?}",
@@ -466,7 +621,12 @@ mod tests {
     fn test_best_straight_flush() {
         let h1 = Vec::from(STRAIGHT_FLUSH);
         let bh_sf = best_hand(&h1);
-        if let Hand::StraightFlush(r) = bh_sf {
+        assert!(
+            bh_sf.cards.len() == 5,
+            "Expected five cards in best_hand.cards, was {:?}",
+            bh_sf.cards
+        );
+        if let Hand::StraightFlush(r) = bh_sf.hand {
             assert!(
                 r == Rank::Rank9,
                 "best_hand(STRAIGHT_FLUSH): expected 9, result was {:?}",

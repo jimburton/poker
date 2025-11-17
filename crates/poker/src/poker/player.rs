@@ -1,7 +1,7 @@
 /// Datatypes and functions for players in the game.
 use crate::poker::{
     betting_strategy::BetArgs,
-    card::{Card, Hand},
+    card::{BestHand, Card},
     game::{Bet, Stage},
 };
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,7 @@ use std::fmt::{self, Debug, Display};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayerHand {
     pub name: String,
-    pub hand: Hand,
+    pub hand: BestHand,
     pub cards: Vec<Card>,
 }
 /// Messages to send to players.

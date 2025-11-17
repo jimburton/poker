@@ -39,7 +39,7 @@ export default function PlayerView ( { placeBet, name, bankRoll, holeCards, call
               <div className="col">
                 {holeCards.length == 2 &&
                   <img src={`/images/cards/${holeCards[0]}.svg`}
-                       className='holeCard' alt={`${holeCards[0]}`} />
+                       className='holeCard backlit_image' alt={`${holeCards[0]}`} />
                 }
               </div>
               <div className="col">

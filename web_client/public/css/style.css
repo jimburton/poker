@@ -113,4 +113,9 @@ img.dealerIcon {
     min-height: 400px;
     background-color: #f8f9fa;
 }
-
+.backlit_image {
+    display: block;
+    /* x-offset y-offset blur-radius spread-radius colour */
+    box-shadow: 0 0 40px 10px rgba(0, 150, 255, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}

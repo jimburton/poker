@@ -128,7 +128,24 @@ impl Display for Hand {
         }
     }
 }
-
+/// Struct for a player's best hand.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BestHand {
+    pub hand: Hand,
+    pub cards: Vec<Card>,
+}
+/// Implementation of Display trait for Hand.
+impl Display for BestHand {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let cards_str = self
+            .cards
+            .iter()
+            .map(|c| format!("{}", c))
+            .collect::<Vec<String>>()
+            .join(", ");
+        write!(f, "{} [{}]", self.hand, cards_str)
+    }
+}
 /// Get a new unshuffled deck of 52 cards.
 pub fn new_deck() -> Vec<Card> {
     Rank::values()

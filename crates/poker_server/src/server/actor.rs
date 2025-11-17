@@ -3,7 +3,7 @@ use axum::extract::ws::{Message, Utf8Bytes, WebSocket};
 use log::error;
 use poker::poker::{
     betting_strategy::BetArgs,
-    card::{Card, Hand},
+    card::{BestHand, Card},
     compare::best_hand,
     game::{Bet, Stage},
     player::{Actor, Msg, Winner},
@@ -58,7 +58,7 @@ pub enum PokerMessage {
         args: BetArgs,
         hole_cards: (Card, Card),
         bank_roll: usize,
-        best_hand: Hand,
+        best_hand: BestHand,
     },
     Error(String),
 }

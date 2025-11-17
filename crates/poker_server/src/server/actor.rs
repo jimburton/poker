@@ -226,7 +226,6 @@ impl Actor for RemoteActor {
         hole_cards: (Card, Card),
         bank_roll: usize,
     ) -> Option<Bet> {
-        println!("Sending bet request: {:?}", args.clone());
         // Blocking MPSC channel for the final result.
         let (sync_tx, sync_rx) = std_mpsc::channel();
 
@@ -272,7 +271,6 @@ impl Actor for RemoteActor {
 
     /// Update (Synchronous, Non-Blocking).
     fn update(&self, msg: &Msg) {
-        println!("Sending update: {}", msg);
         // Convert (synchronous) Msg into (asynchronous) PokerMessage.
         let poker_msg = match msg {
             Msg::Player { name, bank_roll } => PokerMessage::Player {

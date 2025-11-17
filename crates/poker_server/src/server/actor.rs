@@ -115,9 +115,7 @@ async fn start_socket_loop(
                 if let Some(msg) = socket.recv().await {
                     match msg {
                         Ok(Message::Text(utf8_bytes)) => {
-                println!("Received bytes: {:?}", utf8_bytes);
                 let bet = safe_deserialise::<PokerMessage>(&utf8_bytes);
-                println!("Deserialised as: {:?}", bet);
                             // Extract the bet action.
                             let final_bet = match bet {
                                 Some(PokerMessage::PlayerBet(b)) => Some(b),

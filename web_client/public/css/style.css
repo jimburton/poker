@@ -1,10 +1,12 @@
 /* Ensures the HTML and body take up the full viewport height */
-html, body {
+html,
+body {
     height: 100%;
     width: 100%;
     margin: 0;
     font-family: system-ui, -apple-system, sans-serif;
-    color: black; /* Default text color */
+    color: black;
+    /* Default text color */
 }
 
 #root {
@@ -14,16 +16,20 @@ html, body {
 }
 
 /* --- Row Height Definitions (15% | 60% | 25% of Viewport Height) --- */
-#row1, #row3 {
-    height: 15vh; /* 10% of Viewport Height */
+#row1,
+#row3 {
+    height: 15vh;
+    /* 10% of Viewport Height */
 }
 
 #row3 {
-    height: 25vh; /* 10% of Viewport Height */
+    height: 25vh;
+    /* 10% of Viewport Height */
 }
 
 #row2 {
-    height: 60vh; /* 80% of Viewport Height */
+    height: 60vh;
+    /* 80% of Viewport Height */
 }
 
 /* Ensure all inner rows take up 100% of their parent container's height */
@@ -33,12 +39,14 @@ html, body {
 
 /* --- Column Width Definitions (10% | 80% | 10% of Viewport Width) --- */
 .custom-col-width {
-    width: 10%; /* 10% Column Width */
+    width: 10%;
+    /* 10% Column Width */
     padding: 0;
 }
-        
+
 .custom-col-width-center {
-    width: 80%; /* 80% Column Width */
+    width: 80%;
+    /* 80% Column Width */
     padding: 0;
 }
 
@@ -49,70 +57,88 @@ html, body {
 }
 
 /* Apply background colors for visual separation */
-#row1 .grid-cell { background-color: rgba(0, 123, 255, 0.5); } /* Blue */
-#row2 .grid-cell { background-color: rgba(40, 167, 69, 0.5); } /* Green */
-#row3 .grid-cell { background-color: rgba(255, 193, 7, 0.5); } /* Yellow */
+#row1 .grid-cell {
+    background-color: rgba(0, 123, 255, 0.5);
+}
+
+/* Blue */
+#row2 .grid-cell {
+    background-color: rgba(40, 167, 69, 0.5);
+}
+
+/* Green */
+#row3 .grid-cell {
+    background-color: rgba(255, 193, 7, 0.5);
+}
+
+/* Yellow */
 
 /* Override Bootstrap's column padding (gutter) to make the custom width calculation simple */
-.row.g-0 > div {
+.row.g-0>div {
     padding-right: 0;
     padding-left: 0;
 }
 
 img.holeCard {
-   width:100px;
-   height: auto;
-   margin-right: 5px;
+    width: 100px;
+    height: auto;
+    margin-right: 5px;
 }
 
 img.communityCard {
-   width:100px;
-   height: auto;
-   margin-right: 30px;
+    width: 100px;
+    height: auto;
+    margin-right: 30px;
 }
 
 img.opponentCardH {
-   width:100px;
-   height: auto;
-   margin-bottom: 5px;
+    width: 100px;
+    height: auto;
+    margin-bottom: 5px;
 }
 
 img.opponentCardV {
-   height:100px;
-   width: auto;
-   margin-right: 5px;
+    height: 100px;
+    width: auto;
+    margin-right: 5px;
 }
 
 img.dealerIcon {
-   height:50px;
-   width: auto;
-   margin-right: 5px;
-   margin-bottom: 5px;
+    height: 50px;
+    width: auto;
+    margin-right: 5px;
+    margin-bottom: 5px;
 }
 
 .bet-spinner {
     width: 75px;
 }
+
 .messages {
     height: 150px;
     width: 550px;
     overflow-y: auto;
     overflow-x: hidden;
 }
+
 .message-height {
     height: 30%;
 }
+
 .cards-height {
     height: 60%;
 }
+
 .pot-height {
     height: 10%;
 }
+
 .main-layout-area {
-    height: 90vh; 
+    height: 90vh;
     min-height: 400px;
     background-color: #f8f9fa;
 }
+
 .backlit_image {
     /* x-offset y-offset blur-radius spread-radius colour */
     box-shadow: 0 0 40px 10px rgba(0, 150, 255, 0.8);

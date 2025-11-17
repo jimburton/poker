@@ -13,8 +13,6 @@ import { motion, AnimatePresence } from "framer-motion";
 export default function MessageQueue ( { messages } ) {
 
   const [queue, setQueue] = useState([]);
-  console.log(`MessageQueue messages:`);
-  console.log(messages);
 
   useEffect(() => {
     if (!messages || messages.length === 0) return;

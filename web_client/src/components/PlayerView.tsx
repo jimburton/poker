@@ -3,8 +3,8 @@ Component that shows the player's hole cards and buttons for placing a bet..
 **/
 
 export default function PlayerView ( { placeBet, name, bankRoll, holeCards, call,
-                                       possibleBets, isDealer, minBet, setMinBet } ) {
-				       
+                                       possibleBets, isDealer, minBet, setMinBet, bestHandCards } ) {
+
   const canCheck = possibleBets.indexOf('Check') !== -1;
   const canAllIn = possibleBets.indexOf('AllIn') !== -1;
   const canCall = possibleBets.indexOf('Call') !== -1;
@@ -39,13 +39,15 @@ export default function PlayerView ( { placeBet, name, bankRoll, holeCards, call
               <div className="col">
                 {holeCards.length == 2 &&
                   <img src={`/images/cards/${holeCards[0]}.svg`}
-                       className='holeCard backlit_image' alt={`${holeCards[0]}`} />
+                       className={`holeCard${bestHandCards.includes(holeCards[0]) ? ' backlit_image' : ''}`}
+		       alt={`${holeCards[0]}`} />
                 }
               </div>
               <div className="col">
                 {holeCards.length == 2 &&    
                   <img src={`/images/cards/${holeCards[1]}.svg`}
-                       className='holeCard' alt={`${holeCards[1]}`} />
+                       className={`holeCard${bestHandCards.includes(holeCards[1]) ? ' backlit_image' : ''}`}
+		       alt={`${holeCards[1]}`} />
                 }
               </div>
               <div className="col">

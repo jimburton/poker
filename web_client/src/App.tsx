@@ -31,16 +31,12 @@ function App() {
   const enqueueMessage = useCallback((text) => {
     if (text.trim()) {
       const id = Math.random().toString(36).slice(2);
-      console.log(`id: ${id}`);
       const msg = {
         id: id,
         text: text,
         duration: 30000,
        };
-      console.log('Enqueueing message:');
-      console.log(msg);
       setMessageQueue(prevQueue => [...prevQueue, msg]);
-      console.log(`Messages: ${messageQueue}`);
     }
   }, [setMessageQueue]);
 
@@ -55,7 +51,7 @@ function App() {
   };
 
   const parseBestHandCards = (cards: Card[]) => {
-    const names = cards.map((c) => parseCard(c)); 
+    const names = cards.map((c) => parseCard(c));
     setBestHandCards(names);
   };
 
@@ -69,21 +65,16 @@ function App() {
       setConnectionStatus('Connected');
     }
     try {
-      console.log(`Unparsed: ${data}`);
       const rawMessage = JSON.parse(data);
       // map the incoming JSON key into our union type.
       const typeKey = Object.keys(rawMessage)[0];
       const payload = rawMessage[typeKey];
       
-      console.log(`Incoming message type: ${typeKey}`);
-
       const message = {
           type: typeKey as IncomingPokerMessage['type'],
 	  ...(payload as object) // spread the inner payload
         } as IncomingPokerMessage;
 	
-      console.log('Message parsed as:');
-      console.log(message);
       let msgStr = '';
       
       // Type narrowing using the discriminator.
@@ -99,13 +90,9 @@ function App() {
 	  break;
 	  
         case 'PlaceBet':
-	  console.log(`Bet request. Stage: ${message.args.stage}`);
-	  console.log(message);
 	  parseHoleCards(message.hole_cards);
 	  parseCommunityCards(message.args.community_cards);
-	  parseBestHandCards(message.best_hand);
-	  console.log("Best hand cards:");
-	  console.log(message.best_hand.cards);
+	  parseBestHandCards(message.best_hand.cards);
 	  setBankRoll(message.bank_roll);
 	  setCall(message.args.call);
 	  setMinBet(message.args.min);
@@ -129,7 +116,6 @@ function App() {
 
         case 'BetPlaced':
 	  msgStr = `${message.player} made bet ${formatBet(message.bet)}`;
-	  console.log(msgStr);
 	  enqueueMessage(msgStr);
 	  setPot(parseInt(message.pot));
 	  break;
@@ -137,7 +123,6 @@ function App() {
         case 'PlayersInfo':
 	  setPlayers(message.players);
 	  let playersStr = message.players.map((p) => p[0] + ' (' + p[1] + ')').join(", ");
-	  console.log(`Players: ${playersStr}`);
 	  // set up the UI.
 	  setDealer(message.dealer);
 	  setCurrentView('game');
@@ -145,7 +130,6 @@ function App() {
 
         case 'StageDecl':
 	  msgStr = `Stage: ${message.stage}`;
-	  console.log(msgStr);
 	  parseCommunityCards(message.community_cards);
 	  enqueueMessage(msgStr);
 	  break;
@@ -155,12 +139,10 @@ function App() {
 	  const winner = message.winner[winnerType];
 	  if (winnerType === 'SoleWinner') {
 	    msgStr = `${winner.name} won the round with ${JSON.stringify(winner.hand)}`;
-	    console.log(msgStr);
 	    enqueueMessage(msgStr);
           } else {
 	    let winners = winner.map((w) => w[0]).join(', ');
 	    msgStr = `The round was a draw between ${winners}`;
-	    console.log(msgStr);
 	    enqueueMessage(msgStr);
           }
 	  break;
@@ -168,7 +150,6 @@ function App() {
         case 'GameWinner':
 	  if (message.winner.type === 'SoleWinner') {
 	    msgStr = `${message.winner.name} won the game.`;
-	    console.log(msgStr);
 	    enqueueMessage(msgStr);
           } else {
 	    console.error(`Was expecting a single winner of the game, got ${message}`);
@@ -189,7 +170,7 @@ function App() {
       console.log('Received unknown message format: ', error);
     }
   }, [setConnectionStatus, setPlayers, setBankRoll, setCall, setPlayerName,
-      setPossibleBets, setMinBet, setCurrentView, setBestHand, setHoleCards,
+      setPossibleBets, setMinBet, setCurrentView, setBestHandCards, setHoleCards,
       setCommunityCards, setDealer]);
 
   const formatBet = (bet) => {
@@ -251,10 +232,7 @@ function App() {
     e.preventDefault();
     if (!socket) return;
 
-    console.log(e);
     let btn = e.nativeEvent.submitter.name;
-    console.log(btn);
-
     const form = e.target as typeof e.target & {
       amount: { value: number };
     };
@@ -295,7 +273,6 @@ function App() {
 	setPot(pot + parseInt(form.amount.value));
         break;
     }
-    console.log(bet);
     enqueueMessage(`You made bet ${formatBet(bet)}`);
     socket.send(JSON.stringify(bet));
   };
@@ -307,7 +284,7 @@ function App() {
       return <GameView playerName={playerName} bankRoll={bankRoll}
                    players={players} dealer={dealer} holeCards={holeCards}
 		   communityCards={communityCards} possibleBets={possibleBets}
-		   bestHand={bestHand} call={call} minBet={minBet} placeBet={placeBet}
+		   bestHandCards={bestHandCards} call={call} minBet={minBet} placeBet={placeBet}
 		   pot={pot} messageQueue={messageQueue} setMinBet={setMinBet} />;
     } else {
       // Otherwise (if state is 'default'), render the StartGame view.

@@ -9,10 +9,9 @@ import PlayerView from './PlayerView';
 import MessageQueue from './MessageQueue';
 
 export default function GameView ( { playerName, bankRoll, players, dealer, holeCards,
-                                communityCards, possibleBets, bestHand, call, minBet,
+                                communityCards, possibleBets, bestHandCards, call, minBet,
                                 placeBet, pot, messageQueue, setMinBet }) {
         
-  console.log(`GameView Messages: ${messageQueue}`);
   const playerIndex = players.findIndex((p) => p[0] === playerName);
   const playerName_top = players[(playerIndex+2)%players.length][0];
   const playerBankRoll_top = players[(playerIndex+2)%players.length][1];
@@ -77,7 +76,7 @@ export default function GameView ( { playerName, bankRoll, players, dealer, hole
            </div>
          </div>
 
-           <CommunityCardView communityCards={communityCards} />
+           <CommunityCardView communityCards={communityCards} bestHandCards={bestHandCards} />
 
          <div id="potDiv" 
               className="layout-section pot-height bg-gray-800 p-2 rounded-b-xl
@@ -114,7 +113,8 @@ export default function GameView ( { playerName, bankRoll, players, dealer, hole
                   possibleBets={possibleBets}
                   isDealer={isDealer_player}
 		  minBet={minBet}
-		  setMinBet={setMinBet} />
+		  setMinBet={setMinBet}
+		  bestHandCards={bestHandCards} />
 
       <div className="custom-col-width grid-cell d-flex justify-content-center
           align-items-center">

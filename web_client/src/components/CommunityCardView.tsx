@@ -1,8 +1,8 @@
 /**
 Component displaying the community cards.
 **/
-export default function CommunityCardView ( { communityCards = communityCards } ) {
-
+export default function CommunityCardView ( { communityCards, bestHandCards } ) {
+ 
   return (
 
     <div id="communityCards" 
@@ -11,8 +11,9 @@ export default function CommunityCardView ( { communityCards = communityCards } 
       <div className="text-white">
  		    
       {communityCards.map((c) =>
-          <img src={`/images/cards/${c}.svg`} className='communityCard' alt={`${c}`}
-	       key={`${c}_img`} />
+          <img src={`/images/cards/${c}.svg`} className={`communityCard${bestHandCards.includes(c) ? ' backlit_image' : ''}`}
+	                                      alt={`${c}`}
+	                                      key={`${c}_img`} />
        )}
       </div>
     </div>

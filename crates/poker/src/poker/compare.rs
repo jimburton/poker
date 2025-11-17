@@ -50,6 +50,7 @@ pub fn best_hand(cards: &[Card]) -> BestHand {
     } else if ranks.len() > 1 && ranks[0].len() == 2 && ranks[1].len() == 2 {
         let mut cards = ranks[0].clone();
         cards.append(&mut ranks[1].clone());
+        cards.sort();
         BestHand {
             hand: Hand::TwoPair(ranks[0][0].rank, ranks[1][0].rank),
             cards,
@@ -410,10 +411,10 @@ mod tests {
         let card3 = bh_two_pair.cards[2];
         let card4 = bh_two_pair.cards[3];
         assert!(
-            card1.rank == Rank::Rank4
-                && card2.rank == Rank::Rank4
-                && card3.rank == Rank::Rank2
-                && card4.rank == Rank::Rank2,
+            card1.rank == Rank::Rank2
+                && card2.rank == Rank::Rank2
+                && card3.rank == Rank::Rank4
+                && card4.rank == Rank::Rank4,
             "Expected pairs of twos and fours in best_hand.cards, was {:?}",
             bh_two_pair.cards
         );

@@ -1208,7 +1208,7 @@ mod tests {
 
         game.showdown();
 
-        let w = game.winner.clone();
+        let w = &game.winner;
 
         if let Some(Winner::SoleWinner(PlayerHand {
             name: n,
@@ -1289,7 +1289,7 @@ mod tests {
 
         game.showdown();
 
-        let w = game.winner.clone();
+        let w = &game.winner;
 
         if let Some(Winner::Draw(winners)) = w {
             assert!(

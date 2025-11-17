@@ -176,7 +176,7 @@ impl Player {
                     }
                     Bet::Check => Some(Bet::Check),
                     Bet::Call => {
-                        self.bank_roll -= args.clone().call;
+                        self.bank_roll -= args.call;
                         Some(Bet::Call)
                     }
                     Bet::Raise(n) => {

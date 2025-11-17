@@ -129,7 +129,7 @@ impl Display for Hand {
     }
 }
 /// Struct for a player's best hand.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct BestHand {
     pub hand: Hand,
     pub cards: Vec<Card>,

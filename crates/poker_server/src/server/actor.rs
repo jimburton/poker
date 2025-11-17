@@ -66,7 +66,7 @@ pub enum PokerMessage {
 /// to push messages into the asynchronous WebSocket task.
 #[derive(Debug, Clone)]
 struct RemoteActorHandle {
-    // Channel sender for sending updates (Msg) to the WebSocket loop
+    // Channel sender for sending updates (Msg) to the WebSocket loop.
     update_tx: mpsc::Sender<PokerMessage>,
     // Channel sender for requesting a bet (place_bet) and receiving the result
     // The player thread sends a request to the loop, and the loop replies here.
@@ -78,15 +78,15 @@ async fn start_socket_loop(
     mut update_rx: mpsc::Receiver<PokerMessage>,
     mut bet_rx: mpsc::Receiver<BetRequest>,
 ) {
-    // Run the loop indefinitely until the socket closes or an error occurs
+    // Run the loop until the socket closes or an error occurs.
     loop {
         tokio::select! {
-            // 1. Handle incoming messages from the synchronous game loop (Updates and Bet Requests)
+            // Handle incoming messages from the synchronous game loop (Updates and Bet Requests)
             // This is how the game engine tells the player to do something.
             Some((args, hole_cards, bank_roll, bet_responder)) = bet_rx.recv() => {
                 // When the game engine calls place_bet, it sends a oneshot channel here.
 
-                // Construct the bet request message
+                // Construct the bet request message.
                 let mut cards = args.community_cards.clone();
                 let (h1, h2) = (hole_cards.0, hole_cards.1);
                 cards.push(h1);
@@ -99,7 +99,7 @@ async fn start_socket_loop(
                     best_hand: bh,
                 };
 
-                // Send the request to the client
+                // Send the request to the client.
                 let send_res = socket
                     .send(Message::Text(Utf8Bytes::from(
                         serde_json::to_string(&bet_msg).unwrap(),
@@ -108,17 +108,17 @@ async fn start_socket_loop(
 
                 if send_res.is_err() {
                     let _ = bet_responder.send(None);
-                    return; // Exit loop on send error
+                    return; // Exit loop on send error.
                 }
 
-                // Wait for the client's response (this is the actual blocking network IO)
+                // Wait for the client's response (this is the actual blocking network IO).
                 if let Some(msg) = socket.recv().await {
                     match msg {
                         Ok(Message::Text(utf8_bytes)) => {
                 println!("Received bytes: {:?}", utf8_bytes);
                 let bet = safe_deserialise::<PokerMessage>(&utf8_bytes);
                 println!("Deserialised as: {:?}", bet);
-                            // Extract the bet action
+                            // Extract the bet action.
                             let final_bet = match bet {
                                 Some(PokerMessage::PlayerBet(b)) => Some(b),
                                 _ => {
@@ -140,9 +140,9 @@ async fn start_socket_loop(
                 }
             }
 
-            // 2. Handle incoming updates from the synchronous game loop
+            // Handle incoming updates from the synchronous game loop.
             Some(msg) = update_rx.recv() => {
-                // General updates are sent to the client (fire-and-forget)
+                // General updates are sent to the client (fire-and-forget).
                 let send_res = socket
                     .send(Message::Text(Utf8Bytes::from(
                         serde_json::to_string(&msg).unwrap(),
@@ -150,16 +150,16 @@ async fn start_socket_loop(
                     .await;
 
                 if send_res.is_err() {
-                    return; // Exit loop on send error
+                    return; // Exit loop on send error.
                 }
             }
 
-            // 3. Handle messages spontaneously sent from the client (e.g., chat)
+            // Handle messages spontaneously sent from the client.
             Some(result) = socket.recv() => {
                 match result {
                     Ok(Message::Text(_utf8_bytes)) => {
                         // Handle unsolicited messages here (e.g., chat or keep-alive).
-                        // Do nothing, since we only care about bet responses during place_bet
+                        // Do nothing, since we only care about bet responses during place_bet.
                     }
                     Ok(Message::Close(_)) => {
                         error!("WebSocket closed by client.");
@@ -173,13 +173,12 @@ async fn start_socket_loop(
                 }
             }
 
-            // Exit if all senders are dropped (no more messages to manage)
+            // Exit if all senders are dropped.
             else => {
                 break;
             }
         }
     }
-    // Clean up or log closure here
 }
 
 /// The Synchronous Facade struct that implements the Actor trait.
@@ -191,11 +190,11 @@ pub struct RemoteActor {
 impl RemoteActor {
     /// Builds a new RemoteActor, starts the asynchronous WebSocket loop, and returns the facade.
     pub fn build(socket: WebSocket, runtime_handle: Handle) -> RemoteActor {
-        // Create channels for communication between the facade and the async loop
+        // Create channels for communication between the facade and the async loop.
         let (update_tx, update_rx) = mpsc::channel(CHANNEL_CAPACITY);
         let (bet_tx, bet_rx) = mpsc::channel(1); // Only need capacity 1 for blocking bets
 
-        // Start the continuous asynchronous task that owns the WebSocket
+        // Start the continuous asynchronous task that owns the WebSocket.
         runtime_handle.spawn(start_socket_loop(socket, update_rx, bet_rx));
 
         RemoteActor {
@@ -204,8 +203,7 @@ impl RemoteActor {
         }
     }
 }
-// NOTE: The Actor trait methods must be defined here, NOT in the provided code snippet
-// I have created a simplified, conceptual impl for demonstration purposes.
+/// Implementation of Actor for RemoteActor.
 impl Actor for RemoteActor {
     /// Accept the name and bank roll at the beginning of the game.
     fn set_name_and_bank_roll(&self, name: &str, bank_roll: usize) {
@@ -223,14 +221,13 @@ impl Actor for RemoteActor {
     }
     /// Place a bet (Synchronous, Blocking).
     fn place_bet(
-        &mut self, // Changed to &self as state is shared via channels
+        &mut self,
         args: BetArgs,
         hole_cards: (Card, Card),
         bank_roll: usize,
     ) -> Option<Bet> {
         println!("Sending bet request: {:?}", args.clone());
-        // Create a standard library blocking MPSC channel for the final result.
-        // This is safe for blocking the calling thread, even if it's a Tokio worker.
+        // Blocking MPSC channel for the final result.
         let (sync_tx, sync_rx) = std_mpsc::channel();
 
         // Clone necessary parts to move into the blocking thread
@@ -239,20 +236,18 @@ impl Actor for RemoteActor {
 
         // Spawn the entire request/response sequence onto a dedicated blocking thread.
         runtime_handle_clone.spawn_blocking(move || {
-            // This runs on a separate thread pool where blocking is allowed.
-
             // Tokio oneshot channel for receiving from the socket loop
             let (result_tx, result_rx) = oneshot::channel();
             let request: BetRequest = (args, hole_cards, bank_roll, result_tx);
 
-            // Send the request to the async loop (blocking_send is safe here)
+            // Send the request to the async loop.
             if tx_clone.blocking_send(request).is_err() {
                 error!("Failed to send bet request to socket loop from blocking thread.");
                 let _ = sync_tx.send(None); // Send None back to the caller
                 return;
             }
 
-            // Block the current dedicated thread until the async loop replies
+            // Block the current dedicated thread until the async loop replies.
             let result = match result_rx.blocking_recv() {
                 Ok(bet) => bet,
                 Err(e) => {
@@ -261,16 +256,14 @@ impl Actor for RemoteActor {
                 }
             };
 
-            // d. Send the final result back to the original calling thread via std::mpsc
+            // Send the final result back to the original calling thread via std::mpsc.
             let _ = sync_tx.send(result);
         });
 
         // The thread calling `place_bet` blocks on the standard library receiver.
-        // This is the clean, safe way to block on a Tokio worker thread.
         match sync_rx.recv() {
             Ok(bet) => bet, // The Option<Bet> result
             Err(e) => {
-                // The standard MPSC channel failed (e.g., sender dropped unexpectedly)
                 error!("Standard MPSC channel error waiting for result: {}", e);
                 None
             }
@@ -280,7 +273,7 @@ impl Actor for RemoteActor {
     /// Update (Synchronous, Non-Blocking).
     fn update(&self, msg: &Msg) {
         println!("Sending update: {}", msg);
-        // Convert the synchronous Msg into the asynchronous PokerMessage
+        // Convert (synchronous) Msg into (asynchronous) PokerMessage.
         let poker_msg = match msg {
             Msg::Player { name, bank_roll } => PokerMessage::Player {
                 name: name.clone(),

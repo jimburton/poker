@@ -1,8 +1,8 @@
 /// Functions for comparing and ranking collections of cards.
 use std::cmp::Ordering;
 
-use crate::poker::card::{Card, Hand};
 use crate::poker::{
+    card::{Card, Hand},
     player::{PlayerHand, Winner},
     sequence,
 };

@@ -1,5 +1,6 @@
 /// Datatypes and functions for the game and individual rounds.
 use crate::poker::{
+    betting_strategy::BetArgs,
     card,
     card::Card,
     compare, names,
@@ -14,8 +15,6 @@ use std::{
     fmt::{self, Display},
 };
 use uuid::Uuid;
-
-use super::betting_strategy::BetArgs;
 
 // minimum and maximum number of players in a game.
 const MIN_PLAYERS: u8 = 2;
@@ -100,6 +99,12 @@ pub struct Game {
 /// Implementation for the Game struct.
 impl Game {
     pub fn build(big_blind: usize, max_players: u8) -> Self {
+        if max_players > MAX_PLAYERS {
+            panic!("The maximum number of players is {}", MAX_PLAYERS);
+        }
+        if max_players < MIN_PLAYERS {
+            panic!("The minimum number of players is {}", MIN_PLAYERS);
+        }
         let mut game = Game {
             players: HashMap::new(),
             players_order: Vec::new(),
@@ -117,12 +122,6 @@ impl Game {
             num_rounds: 0,
             uuid: Uuid::new_v4(),
         };
-        if max_players > MAX_PLAYERS {
-            panic!("The maximum number of players is {}", MAX_PLAYERS);
-        }
-        if max_players < MIN_PLAYERS {
-            panic!("The minimum number of players is {}", MIN_PLAYERS);
-        }
         let mut deck = card::new_deck();
         let mut rng = rng();
         deck.shuffle(&mut rng);
@@ -286,47 +285,55 @@ impl Game {
         });
     }
 
+    /// Take num cards from the deck.
+    fn take_cards(&mut self, num: usize) -> Result<Vec<Card>, &'static str> {
+        if self.deck.len() < num {
+            Err("Not enough cards left")
+        } else {
+            let cards: Vec<Card> = self.deck[0..num].to_vec();
+            self.deck = self.deck[num..].to_vec();
+            Ok(cards)
+        }
+    }
+
+    fn burn_card(&mut self) -> Result<(), &'static str> {
+        if self.deck.is_empty() {
+            Err("No cards left")
+        } else {
+            self.deck.pop();
+            Ok(())
+        }
+    }
+
     /// Each player receives two hole cards after ante up.
     fn deal_hole_cards(&mut self) {
-        let mut deck = self.deck.clone();
+        let mut hole_cards = self.take_cards(2 * self.players.len()).unwrap();
         self.players.iter_mut().for_each(|(_, p)| {
-            let c1 = deck.pop().unwrap();
-            let c2 = deck.pop().unwrap();
-            p.hole_cards((c1, c2));
+            let hole_1 = hole_cards.pop().unwrap();
+            let hole_2 = hole_cards.pop().unwrap();
+            p.hole_cards((hole_1, hole_2));
         });
-        self.deck = deck;
     }
 
     /// Burn one card and deal the first three three community cards.
     fn deal_flop(&mut self) {
-        let mut deck = self.deck.clone();
-        let _burn = deck.pop().unwrap();
-        let c1 = deck.pop().unwrap();
-
-        let c2 = deck.pop().unwrap();
-        let c3 = deck.pop().unwrap();
-        self.community_cards.push(c1);
-        self.community_cards.push(c2);
-        self.community_cards.push(c3);
-        self.deck = deck;
+        let _burn = self.burn_card();
+        let mut flop_cards: Vec<Card> = self.take_cards(3).unwrap();
+        self.community_cards.append(flop_cards.as_mut());
     }
 
     /// Burn one card and deal the fourth community card.
     fn deal_turn(&mut self) {
-        let mut deck = self.deck.clone();
-        let _burn = deck.pop().unwrap();
-        let c1 = deck.pop().unwrap();
-        self.community_cards.push(c1);
-        self.deck = deck;
+        let _burn = self.burn_card();
+        let mut turn_card: Vec<Card> = self.take_cards(1).unwrap();
+        self.community_cards.append(turn_card.as_mut());
     }
 
     /// Burn one card and deal the fifth and final community card.
     fn deal_river(&mut self) {
-        let mut deck = self.deck.clone();
-        let _burn = deck.pop().unwrap();
-        let c1 = deck.pop().unwrap();
-        self.community_cards.push(c1);
-        self.deck = deck;
+        let _burn = self.burn_card();
+        let mut river_card: Vec<Card> = self.take_cards(1).unwrap();
+        self.community_cards.append(river_card.as_mut());
     }
 
     /// Players are given the opportunity to bet. If a player raises the bet, every
@@ -822,8 +829,6 @@ impl Game {
         self.side_pots = Vec::new();
         self.community_cards = Vec::new();
         self.deck = card::new_deck();
-        let dealer_name_ref: Option<&String> = self.dealer.as_ref();
-
         let mut removed_names: Vec<String> = Vec::new();
 
         // Loop through the players resetting all_in and folded, and collecting
@@ -833,25 +838,33 @@ impl Game {
                 .players
                 .get_mut(name)
                 .expect("Player in order list not found in map.");
-            p.all_in = false;
-            p.folded = false;
-            p.hole = None;
-            let is_dealer = dealer_name_ref.unwrap() == name;
-            // if player doesn't have enough chips to continue, mark for removal
-            if (is_dealer && p.bank_roll < self.small_blind) || (p.bank_roll < self.big_blind) {
+            if p.bank_roll == 0 {
                 removed_names.push(name.clone());
+            } else {
+                p.all_in = false;
+                p.folded = false;
+                p.hole = None;
             }
         }
 
-        // remove player names from self.players_order and Player structs from self.player
+        // remove player names from self.players_order and Player structs from self.player.
         for name in removed_names.iter() {
-            self.players.remove(name.as_str());
             if let Some(index) = self.players_order.iter().position(|value| value == name) {
-                self.players_order.swap_remove(index);
+                self.players_order.remove(index);
             }
             self.players.remove(name);
         }
-        // Add players to bring up the numbers?
+        // Assign new dealer.
+        let dealer_name = self.dealer.clone().unwrap();
+        if !self.players_order.is_empty() {
+            let dealer_index = self
+                .players_order
+                .iter()
+                .position(|n| n == &dealer_name)
+                .unwrap_or_default();
+            let players_order = self.players_order.clone();
+            self.dealer = Some(players_order[(dealer_index + 1) % players_order.len()].clone());
+        }
     }
 }
 
@@ -1464,5 +1477,58 @@ mod tests {
         } else {
             panic!("Expected a draw.");
         }
+    }
+
+    #[test]
+    fn test_reset_after_round() {
+        let mut game = Game::build(20, 4);
+        let _ = game.join(Player::build("player1", AutoActor::new()));
+        let _ = game.join(Player::build("player2", AutoActor::new()));
+        let _ = game.join(Player::build("player3", AutoActor::new()));
+        let _ = game.join(Player::build("player4", AutoActor::new()));
+        game.play_round();
+        let dealer_first = game.dealer.clone().unwrap();
+        game.players.get_mut("player3").unwrap().bank_roll = 0;
+        game.reset_after_round();
+        assert!(
+            !game.players.contains_key("player3"),
+            "Expected player3 to be removed"
+        );
+        let found_player3 = game.players_order.contains(&"player3".to_string());
+        assert!(
+            !found_player3,
+            "Expected player3 to be removed, was {:?}",
+            game.players_order
+        );
+        assert!(
+            game.pot == 0,
+            "Expected game.pot to be zero, was {}",
+            game.pot
+        );
+        assert!(
+            game.side_pots.is_empty(),
+            "Expected game.side_pots to be empty, was {:?}",
+            game.side_pots
+        );
+        assert!(
+            game.community_cards.is_empty(),
+            "Expected game.community_cards to be empty, was {:?}",
+            game.community_cards
+        );
+        assert!(
+            game.deck.len() == 52,
+            "Expected game.deck to have 52 cards, was {}",
+            game.deck.len()
+        );
+        let dealer_second = game.dealer.clone().unwrap();
+        assert!(
+            dealer_first != dealer_second,
+            "Expected dealer to have changed from {}",
+            dealer_first
+        );
+        game.players.values().for_each(|p| {
+            assert!(!p.folded, "Player should not be folded: {:?}", p);
+            assert!(!p.all_in, "Player should not be all_in: {:?}", p);
+        });
     }
 }

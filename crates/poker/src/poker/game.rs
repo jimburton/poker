@@ -632,7 +632,6 @@ impl Game {
                         }
                         Winner::Draw(_) => {
                             // Challenger ties with the benchmark, add challenger to the draw group.
-                            // The original (un-cloned) challenger values are now moved here.
                             draw_winners.push(PlayerHand {
                                 name: challenger_name,
                                 hand: challenger_hand,

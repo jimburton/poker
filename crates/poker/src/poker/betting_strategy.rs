@@ -1,9 +1,10 @@
 /// Betting strategies to be used by players.
 use crate::poker::{
     card::{Card, Hand, Rank},
+    compare,
     game::{Bet, Stage},
+    sequence,
 };
-use crate::poker::{compare, sequence};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 

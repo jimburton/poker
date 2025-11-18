@@ -7,6 +7,7 @@ use crate::poker::{
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Debug, Display};
 
+/// Struct used to comparing hands etc.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayerHand {
     pub name: String,

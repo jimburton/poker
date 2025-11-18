@@ -7,7 +7,7 @@ use crate::poker::{
 };
 
 /// The actor for a computer player.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct AutoActor {
     pub betting_strategy: BettingStrategy,
 }

@@ -29,7 +29,7 @@ pub fn longest_sequence(cards: &[Card]) -> Vec<Card> {
     let mut current_length = 1;
     let mut current_start_value = sorted_unique_ranks[0].value(); // Start with the first rank
 
-    // Iterate to find the longest continuous sequence of unique ranks.
+    // Find the longest continuous sequence of unique ranks.
     for i in 1..sorted_unique_ranks.len() {
         let current_rank_val = sorted_unique_ranks[i].value();
         let previous_rank_val = sorted_unique_ranks[i - 1].value();
@@ -64,7 +64,7 @@ pub fn longest_sequence(cards: &[Card]) -> Vec<Card> {
 
     // Filter the original hand to collect the cards in the longest sequence (one card per rank) ---
 
-    // Collect the actual cards, ensuring only one card is selected for each rank in the sequence.
+    // Collect the cards, ensuring only one card is selected for each rank in the sequence.
     let mut final_sequence_cards: Vec<Card> = Vec::new();
     // Use a HashSet to track which ranks have already been added to the final result
     let mut included_ranks: HashSet<Rank> = HashSet::new();
@@ -73,23 +73,20 @@ pub fn longest_sequence(cards: &[Card]) -> Vec<Card> {
     // The exclusive upper bound for the rank value
     let max_rank_value = best_start_value + max_length as u8;
 
-    // Iterate through the original cards to find a single representative for each rank in the sequence.
+    // Find a single representative for each rank in the sequence.
     for card in cards.iter() {
         let rank_val = card.rank.value();
 
         // Check if the rank is within the longest sequence range.
         if rank_val >= min_rank_value && rank_val < max_rank_value {
-            // 5b. Check if we have already included a card of this rank using HashSet::insert.
+            // Check if we have already included a card of this rank.
             if included_ranks.insert(card.rank) {
-                // If insertion is successful (returns true), the rank is new for the result set.
                 final_sequence_cards.push(*card);
             }
         }
     }
 
-    // Sort the final sequence by rank for a clean, ordered result.
     final_sequence_cards.sort_by_key(|card| card.rank);
-
     final_sequence_cards
 }
 
@@ -98,12 +95,7 @@ pub fn group_by_rank(cards: &[Card]) -> Vec<Vec<Card>> {
     let mut grouped_by_rank: HashMap<Rank, Vec<Card>> = HashMap::new();
 
     for card in cards.iter() {
-        grouped_by_rank
-            .entry(card.rank)
-            // if the key doesn't exist, insert a new vec
-            .or_default()
-            // push the current card
-            .push(*card);
+        grouped_by_rank.entry(card.rank).or_default().push(*card);
     }
     let mut cs: Vec<Vec<Card>> = grouped_by_rank.into_values().collect();
     cs.sort_by_key(|b| Reverse(b.len()));
@@ -115,18 +107,13 @@ pub fn group_by_suit(cards: &[Card]) -> Vec<Vec<Card>> {
     let mut grouped_by_suit: HashMap<Suit, Vec<Card>> = HashMap::new();
 
     for card in cards.iter() {
-        grouped_by_suit
-            .entry(card.suit)
-            // if the key doesn't exist, insert a new vec
-            .or_default()
-            // push the current card
-            .push(*card);
+        grouped_by_suit.entry(card.suit).or_default().push(*card);
     }
     let mut cs: Vec<Vec<Card>> = grouped_by_suit.into_values().collect();
-    // sort the inner lists by rank descending
+    // Sort inner lists by rank descending.
     cs.iter_mut()
         .for_each(|inner| inner.sort_by(|a, b| b.rank.cmp(&a.rank)));
-    // sort the outer lists by length
+    // Sort outer lists by length.
     cs.sort_by_key(|b| Reverse(b.len()));
     cs
 }

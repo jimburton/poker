@@ -1,18 +1,34 @@
 # Poker library (Texas Hold 'Em)
 
-See the [docs](../docs/poker/index.html).
-
 The key structs are [`Player`](./src/poker/player.rs) and
-[`Game`](./src/poker/game.rs). There are a couple of utility functions in
-[src/poker/mod.rs](./src/poker/mod.rs) that enable you to create a new
-`Game` instance populated with players.
+[`Game`](./src/poker/game.rs). There are a couple of utility functions
+in [src/poker/mod.rs](./src/poker/mod.rs) that enable you to create a
+new `Game` instance populated with players. You need to supply one or
+more `Player` instances. For example, using `CLIActor` from the
+[`poker_cli`](../poker_cli/) crate to play a game in the terminal:
+
+```rust
+use poker::poker::{
+    game::Game,
+    new_game_one_player,
+    player::Player
+};
+use cli::player::CLIActor;
+
+fn main() {
+  let actor = CLIActor::new();
+  let p = Player::build("Me", actor);
+  let mut g = poker::new_game_one_player(p, 100, 3);
+  g.play();
+}
+```
 
 `Game` requests bets from `Player` instances by calling
 `Player::place_bet`. `Player` then passes off that task to the object
-in its `actor` field, which is an object implementing the
-`Actor` trait. In this way, `Game` doesn't know or care whether a
-player is an "auto player", placing bets according to some algorithm,
-or an interactive player located in a client. The library includes
+in its `actor` field, which is an object implementing the `Actor`
+trait. In this way, `Game` doesn't know or care whether a player is
+placing bets according to some algorithm or is an interactive player
+located in a client. The library includes
 [`AutoActor`](./src/poker/autoactor.rs), which can be configured with
 various [betting strategies](./src/poker/betting_strategy.rs). Actors
 written to be used interactively in clients include
@@ -111,6 +127,14 @@ are no jokers in the game, so the best hand is a Royal Flush.
   winner(s) did not contribute, the money in that side pot is
   distributed to the player(s) with the best hands amongst those who
   contributed to it and are still in the game.
+
+# Notes on improving the code
+
++ Implement `Copy` trait for types that contain only promitive values or
+  other `Copy` types,
++ Use slices rather than vectors where possible (e.g. `&[Card]` not
+  `Vec<Card>`).
++ Use `Rc<T>` for cheap sharing. Not sure where I can apply this.
   
 # TODO
 

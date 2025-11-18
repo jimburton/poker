@@ -55,14 +55,14 @@ pub fn uniquify(names: &Vec<String>) -> Vec<String> {
 
 /// Modify name to make it distinct with respect to names.
 #[allow(clippy::ptr_arg)]
-pub fn uniquify_name(name: &String, names: &Vec<String>) -> String {
-    if !names.contains(name) {
+pub fn uniquify_name(name: &str, names: &Vec<String>) -> String {
+    if !names.contains(&name.to_string()) {
         return name.to_owned();
     }
     // Add a random digit to the end of name.
     let mut rng = rand::rng();
     let d = rng.random_range(0..10).to_string();
-    let name_plus = name.clone() + &d;
+    let name_plus = name.to_owned() + &d;
     if !names.contains(&name_plus) {
         name_plus
     } else {

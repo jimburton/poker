@@ -7,7 +7,6 @@ use crate::poker::{
     player::{Msg, Player, PlayerHand, Winner},
     rotate_vector,
 };
-use num_traits::ToPrimitive;
 use rand::{rng, seq::SliceRandom};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -132,11 +131,7 @@ impl Game {
 
     /// Predicate function for the game having the full amount of players.
     fn full(&self) -> bool {
-        let num_players = self
-            .max_players
-            .to_usize()
-            .expect("Could not convert num_players to usize");
-        self.players.len() == num_players
+        self.players.len() == self.max_players as usize
     }
 
     /// Allows a player to join the game. The new player's bank roll will be equal to the buy in amount.
@@ -146,8 +141,7 @@ impl Game {
         if self.full() {
             return Err("Cannot add more players.");
         }
-        let names: Vec<String> = self.players.values().map(|p| p.name.clone()).collect();
-        let name = names::uniquify_name(&player.name, &names);
+        let name = names::uniquify_name(&player.name, &self.players_order);
         player.set_name_and_bank_roll(&name, self.buy_in);
         self.players.insert(name.clone(), Box::new(player));
         self.players_order.push(name);
@@ -275,7 +269,7 @@ impl Game {
             // or as all in if their bank roll was less than the blind.
         }
 
-        // Handle the remaining players.
+        // Handle remaining players.
         players_order[1..].iter().for_each(|name| {
             if let Some(p) = self.players.get_mut(name)
                 && let Some(blind) = p.ante_up(self.big_blind)
@@ -296,6 +290,7 @@ impl Game {
         }
     }
 
+    /// Burn a card.
     fn burn_card(&mut self) -> Result<(), &'static str> {
         if self.deck.is_empty() {
             Err("No cards left")
@@ -305,7 +300,7 @@ impl Game {
         }
     }
 
-    /// Each player receives two hole cards after ante up.
+    /// Deal two hole cards to each player.
     fn deal_hole_cards(&mut self) {
         let mut hole_cards = self.take_cards(2 * self.players.len()).unwrap();
         self.players.iter_mut().for_each(|(_, p)| {
@@ -337,7 +332,7 @@ impl Game {
     }
 
     /// Players are given the opportunity to bet. If a player raises the bet, every
-    /// other player must call or raise again.
+    /// other player must respond (fold, call or raise again).
     fn place_bets(&mut self) {
         // names of players who have not folded
         let not_folded: Vec<(String, bool)> = self
@@ -461,7 +456,7 @@ impl Game {
 
     /// Send a message to the players.
     fn update_players(&self, update: &Msg) {
-        self.players.iter().for_each(|(_name, p)| {
+        self.players.values().for_each(|p| {
             p.update(update);
         });
     }
@@ -469,8 +464,7 @@ impl Game {
     /// Determines the winner(s) of the round.
     fn showdown(&mut self) {
         // Get the best hand for each non-folded player.
-        let mut hands: Vec<PlayerHand> =
-            self.names_to_hands(self.players.keys().cloned().collect());
+        let mut hands: Vec<PlayerHand> = self.names_to_hands(&self.players_order);
         // Handle cases where 0 or 1 players remain (the last player standing wins)
         if hands.len() < 2 {
             if let Some(PlayerHand {
@@ -495,10 +489,9 @@ impl Game {
         self.winner = Some(winner);
     }
 
-    /// Takes a vector of player names and return a vector of (name, hand, cards),
-    /// where hand is their best hand and cards is their hole cards plus community cards.
+    /// Takes a vector of player names and return a vector of PlayerHand objects.
     /// Result contains only non-folded players.
-    fn names_to_hands(&self, names: Vec<String>) -> Vec<PlayerHand> {
+    fn names_to_hands(&self, names: &[String]) -> Vec<PlayerHand> {
         // Calculate the best hand for each non-folded player.
         let hands: Vec<PlayerHand> = self
             .players
@@ -833,7 +826,7 @@ impl Game {
 
         // Loop through the players resetting all_in and folded, and collecting
         // the list of ones that need to be removed for lack of money.
-        for name in self.players_order.iter() {
+        self.players_order.iter().for_each(|name| {
             let p = self
                 .players
                 .get_mut(name)
@@ -845,15 +838,16 @@ impl Game {
                 p.folded = false;
                 p.hole = None;
             }
-        }
+        });
 
         // remove player names from self.players_order and Player structs from self.player.
-        for name in removed_names.iter() {
+        removed_names.iter().for_each(|name| {
             if let Some(index) = self.players_order.iter().position(|value| value == name) {
                 self.players_order.remove(index);
             }
             self.players.remove(name);
-        }
+        });
+
         // Assign new dealer.
         let dealer_name = self.dealer.clone().unwrap();
         if !self.players_order.is_empty() {

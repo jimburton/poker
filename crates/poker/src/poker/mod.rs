@@ -1,4 +1,5 @@
 use autoactor::AutoActor;
+use game::Game;
 use player::Player;
 
 pub mod autoactor;
@@ -14,8 +15,8 @@ mod test_data;
 /// Create a new game with one supplied player and the supplied number of auto players.
 /// Supply an interactive player to create a one player game.
 /// The auto players use either the `six_max` or `modest` betting strategies.
-pub fn new_game_one_player(player: Player, big_blind: usize, num_auto_players: u8) -> game::Game {
-    let mut g = game::Game::build(big_blind, num_auto_players + 1);
+pub fn new_game_one_player(player: Player, big_blind: usize, num_auto_players: u8) -> Game {
+    let mut g = Game::build(big_blind, num_auto_players + 1);
     g.join(player).unwrap_or_else(|e| eprintln!("{e:?}"));
     // make an iterator of actors using different strategies.
     let actors = (0..num_auto_players).map(|i| {
@@ -36,8 +37,8 @@ pub fn new_game_one_player(player: Player, big_blind: usize, num_auto_players: u
 }
 
 /// Create a new game with the supplied players
-pub fn new_game_with_players(players: Vec<Player>, big_blind: usize) -> game::Game {
-    let mut g = game::Game::build(big_blind, players.len() as u8);
+pub fn new_game_with_players(players: Vec<Player>, big_blind: usize) -> Game {
+    let mut g = Game::build(big_blind, players.len() as u8);
     for p in players {
         g.join(p).unwrap_or_else(|e| eprintln!("{e:?}"));
     }
